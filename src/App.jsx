@@ -91,7 +91,7 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay">
       <div className="modal-box">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-bold" style={T}>{isEdit ? 'Editar Lead' : 'Novo Lead'}</h3>
@@ -341,7 +341,7 @@ function EventModal({ initial, defaultDate, onClose, onSave, onDelete }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay">
       <div className="modal-box">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-bold" style={T}>{isEdit ? 'Editar Compromisso' : 'Novo Compromisso'}</h3>
@@ -588,7 +588,7 @@ function ClienteModal({ initial, onClose, onSave, onDelete }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay">
       <div className="modal-box">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-bold" style={T}>{isEdit ? 'Editar Cliente' : 'Novo Cliente'}</h3>
