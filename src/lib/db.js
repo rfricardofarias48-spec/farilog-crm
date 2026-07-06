@@ -8,7 +8,7 @@ function mapCrmLead(r) {
     nomeEmpresa: r.nome_empresa,
     contato:     r.contato || '',
     telefone:    r.telefone || '',
-    valor:       Number(r.valor ?? 0),
+    quantidade:  Number(r.quantidade ?? 0),
     etapa:       r.etapa,
     tipo:        r.tipo || 'diaria',
     observacoes: r.observacoes || '',
@@ -25,14 +25,14 @@ export async function fetchCrmLeads() {
   return data.map(mapCrmLead);
 }
 
-export async function createCrmLead({ nomeEmpresa, contato, telefone, valor, etapa, tipo, observacoes }) {
+export async function createCrmLead({ nomeEmpresa, contato, telefone, quantidade, etapa, tipo, observacoes }) {
   const { data, error } = await supabase
     .from('crm_leads')
     .insert({
       nome_empresa: nomeEmpresa,
       contato:      contato || null,
       telefone:     telefone || null,
-      valor:        valor || 0,
+      quantidade:   quantidade || 0,
       etapa:        etapa || 'novo',
       tipo:         tipo || 'diaria',
       observacoes:  observacoes || null,
@@ -48,7 +48,7 @@ export async function updateCrmLead(id, patch) {
   if (patch.nomeEmpresa !== undefined) p.nome_empresa = patch.nomeEmpresa;
   if (patch.contato     !== undefined) p.contato      = patch.contato;
   if (patch.telefone    !== undefined) p.telefone     = patch.telefone;
-  if (patch.valor       !== undefined) p.valor        = patch.valor;
+  if (patch.quantidade  !== undefined) p.quantidade   = patch.quantidade;
   if (patch.etapa       !== undefined) p.etapa        = patch.etapa;
   if (patch.tipo        !== undefined) p.tipo         = patch.tipo;
   if (patch.observacoes !== undefined) p.observacoes  = patch.observacoes;

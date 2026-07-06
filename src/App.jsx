@@ -16,9 +16,6 @@ const PRIMARY    = '#2563EB';
 const PRIMARY_DK = '#1D4ED8';
 const PRIMARY_BG = '#EFF6FF';
 
-const fmtCurrency = (val) =>
-  val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/R\$\s/, 'R$');
-
 const CRM_PASSWORD = '676012';
 
 // ── Bloqueio por senha ─────────────────────────────────────────────────────
@@ -79,16 +76,17 @@ const tipoInfo = (tipo) => TIPO_OPTIONS.find(t => t.key === tipo) || TIPO_OPTION
 // ── Modal de Lead (novo / editar) ─────────────────────────────────────────
 function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(initial || {
-    nomeEmpresa: '', contato: '', telefone: '', valor: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', observacoes: '',
+    nomeEmpresa: '', contato: '', telefone: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', observacoes: '',
   });
   const [saving, setSaving] = useState(false);
   const isEdit = Boolean(initial);
+  const qtyLabel = form.tipo === 'carreta' ? 'Descargas/Semana' : 'Vagas';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.nomeEmpresa.trim()) return;
     setSaving(true);
-    await onSave({ ...form, valor: Number(form.valor) || 0 });
+    await onSave({ ...form, quantidade: Number(form.quantidade) || 0 });
     setSaving(false);
   };
 
@@ -117,8 +115,8 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Valor estimado (R$)</label>
-              <input type="number" step="0.01" className="input-field" value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} placeholder="0,00" />
+              <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>{qtyLabel}</label>
+              <input type="number" step="1" min="0" className="input-field" value={form.quantidade} onChange={e => setForm(f => ({ ...f, quantidade: e.target.value }))} placeholder="0" />
             </div>
             <div>
               <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Etapa</label>
@@ -193,8 +191,10 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
           <User size={11} /> {lead.contato}
         </p>
       )}
-      {lead.valor > 0 && (
-        <p className="text-xs font-bold mt-1.5" style={{ color: PRIMARY }}>{fmtCurrency(lead.valor)}</p>
+      {lead.quantidade > 0 && (
+        <p className="text-xs font-bold mt-1.5" style={{ color: PRIMARY }}>
+          {lead.quantidade} {lead.tipo === 'carreta' ? 'descargas/semana' : 'vagas'}
+        </p>
       )}
     </div>
   );
@@ -262,7 +262,6 @@ function Pipeline() {
       <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '8px' }}>
         {STAGES.map(stage => {
           const stageLeads = leads.filter(l => l.etapa === stage.key);
-          const total = stageLeads.reduce((s, l) => s + l.valor, 0);
           const isOver = dragOverCol === stage.key;
           return (
             <div
@@ -284,7 +283,6 @@ function Pipeline() {
                   <p className="text-xs font-bold" style={{ color: '#0F172A' }}>{stage.label}</p>
                   <span className="text-xs font-semibold ml-auto" style={{ color: '#94A3B8' }}>{stageLeads.length}</span>
                 </div>
-                {total > 0 && <p className="text-xs mt-0.5" style={{ color: '#94A3B8', paddingLeft: '16px' }}>{fmtCurrency(total)}</p>}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minHeight: '80px' }}>
