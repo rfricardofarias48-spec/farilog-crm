@@ -61,11 +61,12 @@ function CRMGate({ onUnlock }) {
 }
 
 const STAGES = [
-  { key: 'novo',        label: 'Novo Lead',              color: '#64748B' },
-  { key: 'contato',     label: 'Contato Feito',           color: '#2563EB' },
-  { key: 'necessidade', label: 'Necessidade Identificada', color: '#7C3AED' },
-  { key: 'proposta',    label: 'Proposta Enviada',        color: '#D97706' },
-  { key: 'negociacao',  label: 'Negociação',              color: '#059669' },
+  { key: 'novo',        label: 'Novo Lead',        color: '#64748B' },
+  { key: 'proposta',    label: 'Proposta Enviada', color: '#2563EB' },
+  { key: 'reuniao',     label: 'Reunião',          color: '#7C3AED' },
+  { key: 'fechamento',  label: 'Fechamento',       color: '#0891B2' },
+  { key: 'caiu',        label: 'Caiu',             color: '#DC2626' },
+  { key: 'venda',       label: 'Venda',            color: '#059669' },
 ];
 
 // ── Modal de Lead (novo / editar) ─────────────────────────────────────────
