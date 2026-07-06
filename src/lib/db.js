@@ -10,6 +10,7 @@ function mapCrmLead(r) {
     telefone:    r.telefone || '',
     valor:       Number(r.valor ?? 0),
     etapa:       r.etapa,
+    tipo:        r.tipo || 'diaria',
     observacoes: r.observacoes || '',
     criadoEm:    r.criado_em,
   };
@@ -24,7 +25,7 @@ export async function fetchCrmLeads() {
   return data.map(mapCrmLead);
 }
 
-export async function createCrmLead({ nomeEmpresa, contato, telefone, valor, etapa, observacoes }) {
+export async function createCrmLead({ nomeEmpresa, contato, telefone, valor, etapa, tipo, observacoes }) {
   const { data, error } = await supabase
     .from('crm_leads')
     .insert({
@@ -33,6 +34,7 @@ export async function createCrmLead({ nomeEmpresa, contato, telefone, valor, eta
       telefone:     telefone || null,
       valor:        valor || 0,
       etapa:        etapa || 'novo',
+      tipo:         tipo || 'diaria',
       observacoes:  observacoes || null,
     })
     .select()
@@ -48,6 +50,7 @@ export async function updateCrmLead(id, patch) {
   if (patch.telefone    !== undefined) p.telefone     = patch.telefone;
   if (patch.valor       !== undefined) p.valor        = patch.valor;
   if (patch.etapa       !== undefined) p.etapa        = patch.etapa;
+  if (patch.tipo        !== undefined) p.tipo         = patch.tipo;
   if (patch.observacoes !== undefined) p.observacoes  = patch.observacoes;
   const { error } = await supabase.from('crm_leads').update(p).eq('id', id);
   if (error) { console.error('[db] updateCrmLead:', error.message); return false; }
@@ -108,5 +111,61 @@ export async function updateCrmEvento(id, patch) {
 export async function deleteCrmEvento(id) {
   const { error } = await supabase.from('crm_eventos').delete().eq('id', id);
   if (error) { console.error('[db] deleteCrmEvento:', error.message); return false; }
+  return true;
+}
+
+// ── Carteira de Clientes ────────────────────────────────────────────────────
+
+function mapCrmCliente(r) {
+  return {
+    id:          r.id,
+    nome:        r.nome,
+    responsavel: r.responsavel || '',
+    contato:     r.contato || '',
+    tipo:        r.tipo || 'diaria',
+    dataEntrada: r.data_entrada || '',
+  };
+}
+
+export async function fetchCrmClientes() {
+  const { data, error } = await supabase
+    .from('crm_clientes')
+    .select('*')
+    .order('nome');
+  if (error) { console.error('[db] fetchCrmClientes:', error.message); return []; }
+  return data.map(mapCrmCliente);
+}
+
+export async function createCrmCliente({ nome, responsavel, contato, tipo, dataEntrada }) {
+  const { data, error } = await supabase
+    .from('crm_clientes')
+    .insert({
+      nome,
+      responsavel:  responsavel || null,
+      contato:      contato || null,
+      tipo:         tipo || 'diaria',
+      data_entrada: dataEntrada || null,
+    })
+    .select()
+    .single();
+  if (error) { console.error('[db] createCrmCliente:', error.message); return null; }
+  return mapCrmCliente(data);
+}
+
+export async function updateCrmCliente(id, patch) {
+  const p = {};
+  if (patch.nome        !== undefined) p.nome         = patch.nome;
+  if (patch.responsavel !== undefined) p.responsavel  = patch.responsavel;
+  if (patch.contato     !== undefined) p.contato      = patch.contato;
+  if (patch.tipo        !== undefined) p.tipo         = patch.tipo;
+  if (patch.dataEntrada !== undefined) p.data_entrada = patch.dataEntrada;
+  const { error } = await supabase.from('crm_clientes').update(p).eq('id', id);
+  if (error) { console.error('[db] updateCrmCliente:', error.message); return false; }
+  return true;
+}
+
+export async function deleteCrmCliente(id) {
+  const { error } = await supabase.from('crm_clientes').delete().eq('id', id);
+  if (error) { console.error('[db] deleteCrmCliente:', error.message); return false; }
   return true;
 }

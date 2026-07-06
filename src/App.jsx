@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import {
   fetchCrmLeads, createCrmLead, updateCrmLead, deleteCrmLead,
   fetchCrmEventos, createCrmEvento, updateCrmEvento, deleteCrmEvento,
+  fetchCrmClientes, createCrmCliente, updateCrmCliente, deleteCrmCliente,
 } from './lib/db';
 import {
   Plus, X, User, Trash2, ChevronLeft, ChevronRight,
-  CalendarDays, Lock, KanbanSquare, LogOut,
+  CalendarDays, Lock, KanbanSquare, LogOut, Users,
 } from 'lucide-react';
 
 const T  = { color: '#0F172A' };
@@ -69,10 +70,16 @@ const STAGES = [
   { key: 'venda',       label: 'Venda',            color: '#059669' },
 ];
 
+const TIPO_OPTIONS = [
+  { key: 'diaria',  label: 'Diária',  color: '#2563EB', bg: '#EFF6FF' },
+  { key: 'carreta', label: 'Carreta', color: '#DC2626', bg: '#FEE2E2' },
+];
+const tipoInfo = (tipo) => TIPO_OPTIONS.find(t => t.key === tipo) || TIPO_OPTIONS[0];
+
 // ── Modal de Lead (novo / editar) ─────────────────────────────────────────
 function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(initial || {
-    nomeEmpresa: '', contato: '', telefone: '', valor: '', etapa: defaultEtapa || 'novo', observacoes: '',
+    nomeEmpresa: '', contato: '', telefone: '', valor: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', observacoes: '',
   });
   const [saving, setSaving] = useState(false);
   const isEdit = Boolean(initial);
@@ -121,6 +128,23 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
             </div>
           </div>
           <div>
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#64748B' }}>Tipo</label>
+            <div className="flex gap-2">
+              {TIPO_OPTIONS.map(t => (
+                <button key={t.key} type="button" onClick={() => setForm(f => ({ ...f, tipo: t.key }))}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-all"
+                  style={{
+                    background:  form.tipo === t.key ? t.bg : '#F8FAFC',
+                    borderColor: form.tipo === t.key ? t.color : 'rgba(0,0,0,0.08)',
+                    color:       form.tipo === t.key ? t.color : '#94A3B8',
+                    cursor: 'pointer',
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Observações</label>
             <textarea className="input-field" rows={3} value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} placeholder="Detalhes do lead..." style={{ resize: 'none' }} />
           </div>
@@ -145,6 +169,7 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
 
 // ── Card de Lead (arrastável) ──────────────────────────────────────────────
 function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
+  const tInfo = tipoInfo(lead.tipo);
   return (
     <div
       draggable
@@ -157,7 +182,12 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
         transition: 'opacity 0.15s, transform 0.15s',
       }}
     >
-      <p className="text-sm font-bold" style={{ color: '#0F172A' }}>{lead.nomeEmpresa}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold" style={{ color: '#0F172A' }}>{lead.nomeEmpresa}</p>
+        <span style={{ flexShrink: 0, fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: tInfo.bg, color: tInfo.color }}>
+          {tInfo.label}
+        </span>
+      </div>
       {lead.contato && (
         <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#64748B' }}>
           <User size={11} /> {lead.contato}
@@ -543,10 +573,190 @@ function Agenda() {
   );
 }
 
+// ── Modal de Cliente (novo / editar) ───────────────────────────────────────
+function ClienteModal({ initial, onClose, onSave, onDelete }) {
+  const [form, setForm] = useState(initial || {
+    nome: '', responsavel: '', contato: '', tipo: 'diaria', dataEntrada: TODAY_ISO,
+  });
+  const [saving, setSaving] = useState(false);
+  const isEdit = Boolean(initial);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.nome.trim()) return;
+    setSaving(true);
+    await onSave(form);
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-bold" style={T}>{isEdit ? 'Editar Cliente' : 'Novo Cliente'}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Nome *</label>
+            <input className="input-field" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Nome do cliente" autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Responsável</label>
+              <input className="input-field" value={form.responsavel} onChange={e => setForm(f => ({ ...f, responsavel: e.target.value }))} placeholder="Quem atende o cliente" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Contato</label>
+              <input className="input-field" value={form.contato} onChange={e => setForm(f => ({ ...f, contato: e.target.value }))} placeholder="Telefone ou e-mail" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Data de entrada</label>
+            <input type="date" className="input-field" value={form.dataEntrada} onChange={e => setForm(f => ({ ...f, dataEntrada: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#64748B' }}>Tipo</label>
+            <div className="flex gap-2">
+              {TIPO_OPTIONS.map(t => (
+                <button key={t.key} type="button" onClick={() => setForm(f => ({ ...f, tipo: t.key }))}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-all"
+                  style={{
+                    background:  form.tipo === t.key ? t.bg : '#F8FAFC',
+                    borderColor: form.tipo === t.key ? t.color : 'rgba(0,0,0,0.08)',
+                    color:       form.tipo === t.key ? t.color : '#94A3B8',
+                    cursor: 'pointer',
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2">
+            {isEdit && (
+              <button type="button" className="btn-danger flex items-center gap-1.5" onClick={() => onDelete(initial.id)}>
+                <Trash2 size={13} /> Excluir
+              </button>
+            )}
+            <div className="flex-1" />
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button type="submit" disabled={saving || !form.nome.trim()} className="btn-primary" style={{ opacity: saving || !form.nome.trim() ? 0.6 : 1 }}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Carteira de Clientes ────────────────────────────────────────────────────
+function Carteira() {
+  const [clientes, setClientes] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing]     = useState(null);
+
+  useEffect(() => { fetchCrmClientes().then(c => { setClientes(c); setLoading(false); }); }, []);
+
+  const openNew  = () => { setEditing(null); setModalOpen(true); };
+  const openEdit = (cliente) => { setEditing(cliente); setModalOpen(true); };
+
+  const handleSave = async (form) => {
+    if (editing) {
+      setClientes(prev => prev.map(c => c.id === editing.id ? { ...c, ...form } : c));
+      await updateCrmCliente(editing.id, form);
+    } else {
+      const saved = await createCrmCliente(form);
+      if (saved) setClientes(prev => [...prev, saved].sort((a, b) => a.nome.localeCompare(b.nome)));
+    }
+    setModalOpen(false);
+  };
+
+  const handleDelete = async (id) => {
+    setClientes(prev => prev.filter(c => c.id !== id));
+    setModalOpen(false);
+    await deleteCrmCliente(id);
+  };
+
+  if (loading) return <div className="card py-14 text-center text-sm" style={TM}>Carregando...</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold" style={T}>Carteira de Clientes</h2>
+          <p className="text-xs mt-0.5" style={TM}>Clientes ativos e seus responsáveis</p>
+        </div>
+        <button onClick={openNew} className="btn-primary flex items-center gap-1.5">
+          <Plus size={14} /> Novo Cliente
+        </button>
+      </div>
+
+      <div className="card overflow-hidden">
+        {clientes.length === 0 ? (
+          <div className="py-14 text-center">
+            <Users size={22} className="mx-auto mb-2" style={{ color: '#CBD5E1' }} />
+            <p className="text-sm" style={TM}>Nenhum cliente cadastrado ainda</p>
+          </div>
+        ) : (
+          <>
+            <div className="px-5 py-2.5 grid text-xs font-semibold"
+              style={{ gridTemplateColumns: '1fr 1fr 1fr 90px 110px', gap: '8px', color: '#94A3B8', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+              <span>Cliente</span>
+              <span>Responsável</span>
+              <span>Contato</span>
+              <span>Tipo</span>
+              <span>Entrada</span>
+            </div>
+            {clientes.map((c, idx) => {
+              const tInfo = tipoInfo(c.tipo);
+              return (
+                <div key={c.id} onClick={() => openEdit(c)}
+                  className="px-5 py-3 grid text-sm items-center"
+                  style={{
+                    gridTemplateColumns: '1fr 1fr 1fr 90px 110px', gap: '8px', cursor: 'pointer',
+                    borderBottom: idx < clientes.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <span className="font-semibold" style={{ color: '#0F172A' }}>{c.nome}</span>
+                  <span style={{ color: '#64748B' }}>{c.responsavel || '—'}</span>
+                  <span style={{ color: '#64748B' }}>{c.contato || '—'}</span>
+                  <span>
+                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: tInfo.bg, color: tInfo.color }}>
+                      {tInfo.label}
+                    </span>
+                  </span>
+                  <span style={{ color: '#64748B', fontSize: '12px' }}>{c.dataEntrada ? c.dataEntrada.split('-').reverse().join('/') : '—'}</span>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
+
+      {modalOpen && (
+        <ClienteModal
+          initial={editing}
+          onClose={() => setModalOpen(false)}
+          onSave={handleSave}
+          onDelete={handleDelete}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── App CRM (standalone) ────────────────────────────────────────────────────
 const TABS = [
-  { key: 'pipeline', label: 'Pipeline', icon: KanbanSquare },
-  { key: 'agenda',   label: 'Agenda',   icon: CalendarDays },
+  { key: 'pipeline', label: 'Pipeline',            icon: KanbanSquare },
+  { key: 'agenda',   label: 'Agenda',               icon: CalendarDays },
+  { key: 'carteira', label: 'Carteira de Clientes', icon: Users        },
 ];
 
 export default function App() {
@@ -589,6 +799,7 @@ export default function App() {
       <main className="flex-1 p-6" style={{ minWidth: 0 }}>
         {tab === 'pipeline' && <Pipeline />}
         {tab === 'agenda'   && <Agenda />}
+        {tab === 'carteira' && <Carteira />}
       </main>
     </div>
   );
