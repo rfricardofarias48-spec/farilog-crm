@@ -13,6 +13,9 @@ function mapCrmLead(r) {
     etapa:         r.etapa,
     tipo:          r.tipo || 'diaria',
     ultimoContato: r.ultimo_contato || '',
+    reuniaoData:   r.reuniao_data || '',
+    reuniaoHora:   r.reuniao_hora ? r.reuniao_hora.slice(0, 5) : '',
+    eventoId:      r.evento_id || null,
     observacoes:   r.observacoes || '',
     criadoEm:      r.criado_em,
   };
@@ -27,19 +30,22 @@ export async function fetchCrmLeads() {
   return data.map(mapCrmLead);
 }
 
-export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, ultimoContato, observacoes }) {
+export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, ultimoContato, reuniaoData, reuniaoHora, eventoId, observacoes }) {
   const { data, error } = await supabase
     .from('crm_leads')
     .insert({
-      nome_empresa:  nomeEmpresa,
-      contato:       contato || null,
-      telefone:      telefone || null,
-      cidade:        cidade || null,
-      quantidade:    quantidade || 0,
-      etapa:         etapa || 'novo',
-      tipo:          tipo || 'diaria',
+      nome_empresa:   nomeEmpresa,
+      contato:        contato || null,
+      telefone:       telefone || null,
+      cidade:         cidade || null,
+      quantidade:     quantidade || 0,
+      etapa:          etapa || 'novo',
+      tipo:           tipo || 'diaria',
       ultimo_contato: ultimoContato || null,
-      observacoes:   observacoes || null,
+      reuniao_data:   reuniaoData || null,
+      reuniao_hora:   reuniaoHora || null,
+      evento_id:      eventoId || null,
+      observacoes:    observacoes || null,
     })
     .select()
     .single();
@@ -57,6 +63,9 @@ export async function updateCrmLead(id, patch) {
   if (patch.etapa         !== undefined) p.etapa          = patch.etapa;
   if (patch.tipo          !== undefined) p.tipo           = patch.tipo;
   if (patch.ultimoContato !== undefined) p.ultimo_contato = patch.ultimoContato;
+  if (patch.reuniaoData   !== undefined) p.reuniao_data   = patch.reuniaoData || null;
+  if (patch.reuniaoHora   !== undefined) p.reuniao_hora   = patch.reuniaoHora || null;
+  if (patch.eventoId      !== undefined) p.evento_id      = patch.eventoId;
   if (patch.observacoes   !== undefined) p.observacoes    = patch.observacoes;
   const { error } = await supabase.from('crm_leads').update(p).eq('id', id);
   if (error) { console.error('[db] updateCrmLead:', error.message); return false; }

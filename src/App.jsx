@@ -91,15 +91,23 @@ function formatDDMM(iso) {
 // ── Modal de Lead (novo / editar) ─────────────────────────────────────────
 function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(initial || {
-    nomeEmpresa: '', contato: '', telefone: '', cidade: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', ultimoContato: '', observacoes: '',
+    nomeEmpresa: '', contato: '', telefone: '', cidade: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', ultimoContato: '',
+    reuniaoData: '', reuniaoHora: '09:00', observacoes: '',
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState('');
   const isEdit = Boolean(initial);
   const qtyLabel = form.tipo === 'carreta' ? 'Descargas/Semana' : 'Vagas';
+  const isReuniao = form.etapa === 'reuniao';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.nomeEmpresa.trim()) return;
+    if (isReuniao && (!form.reuniaoData || !form.reuniaoHora)) {
+      setError('Informe a data e o horário da reunião.');
+      return;
+    }
+    setError('');
     setSaving(true);
     await onSave({ ...form, quantidade: Number(form.quantidade) || 0 });
     setSaving(false);
@@ -150,6 +158,24 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
               </select>
             </div>
           </div>
+
+          {isReuniao && (
+            <div className="p-3 rounded-xl" style={{ background: '#F5F3FF', border: '1px solid rgba(124,58,237,0.25)' }}>
+              <p className="text-xs font-bold mb-2" style={{ color: '#7C3AED' }}>Detalhes da reunião</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Data *</label>
+                  <input type="date" className="input-field" value={form.reuniaoData} onChange={e => setForm(f => ({ ...f, reuniaoData: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Horário *</label>
+                  <input type="time" className="input-field" value={form.reuniaoHora} onChange={e => setForm(f => ({ ...f, reuniaoHora: e.target.value }))} />
+                </div>
+              </div>
+              <p className="text-xs mt-2" style={{ color: '#94A3B8' }}>Isso cria (ou atualiza) um compromisso na Agenda automaticamente.</p>
+            </div>
+          )}
+
           <div>
             <label className="text-xs font-semibold mb-1.5 block" style={{ color: '#64748B' }}>Tipo</label>
             <div className="flex gap-2">
@@ -171,6 +197,8 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
             <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Observações</label>
             <textarea className="input-field" rows={3} value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} placeholder="Detalhes do lead..." style={{ resize: 'none' }} />
           </div>
+
+          {error && <p className="text-xs font-semibold" style={{ color: '#E11D48' }}>{error}</p>}
 
           <div className="flex items-center gap-2 pt-2">
             {isEdit && (
@@ -220,6 +248,11 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
           <MapPin size={11} /> {lead.cidade}
         </p>
       )}
+      {lead.etapa === 'reuniao' && lead.reuniaoData && (
+        <p className="text-xs font-bold mt-1.5 flex items-center gap-1" style={{ color: '#7C3AED' }}>
+          <CalendarDays size={11} /> {formatDDMM(lead.reuniaoData)}{lead.reuniaoHora ? ` às ${lead.reuniaoHora}` : ''}
+        </p>
+      )}
       {lead.quantidade > 0 && (
         <p className="text-xs font-bold mt-1.5" style={{ color: PRIMARY }}>
           {lead.quantidade} {lead.tipo === 'carreta' ? 'descargas/semana' : 'vagas'}
@@ -245,14 +278,38 @@ function Pipeline() {
   const openEdit = (lead) => { setEditing(lead); setModalOpen(true); };
   const closeModal = () => setModalOpen(false);
 
+  const syncReuniaoEvento = async (leadRecord, form) => {
+    if (form.etapa !== 'reuniao' || !form.reuniaoData || !form.reuniaoHora) return null;
+    const titulo    = `Reunião — ${form.contato ? `${form.contato} (${form.nomeEmpresa})` : form.nomeEmpresa}`;
+    const descricao = form.observacoes || `Reunião com lead ${form.nomeEmpresa}`;
+    const cor       = STAGES.find(s => s.key === 'reuniao').color;
+    if (leadRecord.eventoId) {
+      await updateCrmEvento(leadRecord.eventoId, { titulo, data: form.reuniaoData, hora: form.reuniaoHora, descricao, cor });
+      return leadRecord.eventoId;
+    }
+    const evento = await createCrmEvento({ titulo, data: form.reuniaoData, hora: form.reuniaoHora, descricao, cor });
+    if (evento) await updateCrmLead(leadRecord.id, { eventoId: evento.id });
+    return evento?.id ?? null;
+  };
+
   const handleSave = async (form) => {
+    let leadRecord;
     if (editing) {
-      setLeads(prev => prev.map(l => l.id === editing.id ? { ...l, ...form } : l));
+      leadRecord = { ...editing, ...form };
+      setLeads(prev => prev.map(l => l.id === editing.id ? leadRecord : l));
       await updateCrmLead(editing.id, form);
     } else {
-      const saved = await createCrmLead(form);
-      if (saved) setLeads(prev => [saved, ...prev]);
+      leadRecord = await createCrmLead(form);
+      if (leadRecord) setLeads(prev => [leadRecord, ...prev]);
     }
+
+    if (leadRecord) {
+      const eventoId = await syncReuniaoEvento(leadRecord, form);
+      if (eventoId && eventoId !== leadRecord.eventoId) {
+        setLeads(prev => prev.map(l => l.id === leadRecord.id ? { ...l, eventoId } : l));
+      }
+    }
+
     setModalOpen(false);
   };
 
@@ -270,7 +327,16 @@ function Pipeline() {
   const handleDrop = (e, stageKey) => {
     e.preventDefault();
     setDragOverCol(null);
-    if (dragged && dragged.etapa !== stageKey) moveLead(dragged.id, stageKey);
+    if (dragged && dragged.etapa !== stageKey) {
+      if (stageKey === 'reuniao') {
+        // Reunião sempre exige data e horário — abre o formulário em vez de mover direto.
+        setEditing({ ...dragged, etapa: 'reuniao' });
+        setNewStage('reuniao');
+        setModalOpen(true);
+      } else {
+        moveLead(dragged.id, stageKey);
+      }
+    }
     setDragged(null);
   };
 
