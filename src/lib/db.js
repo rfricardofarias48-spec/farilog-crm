@@ -4,16 +4,17 @@ import { supabase } from './supabase';
 
 function mapCrmLead(r) {
   return {
-    id:          r.id,
-    nomeEmpresa: r.nome_empresa,
-    contato:     r.contato || '',
-    telefone:    r.telefone || '',
-    cidade:      r.cidade || '',
-    quantidade:  Number(r.quantidade ?? 0),
-    etapa:       r.etapa,
-    tipo:        r.tipo || 'diaria',
-    observacoes: r.observacoes || '',
-    criadoEm:    r.criado_em,
+    id:            r.id,
+    nomeEmpresa:   r.nome_empresa,
+    contato:       r.contato || '',
+    telefone:      r.telefone || '',
+    cidade:        r.cidade || '',
+    quantidade:    Number(r.quantidade ?? 0),
+    etapa:         r.etapa,
+    tipo:          r.tipo || 'diaria',
+    ultimoContato: r.ultimo_contato || '',
+    observacoes:   r.observacoes || '',
+    criadoEm:      r.criado_em,
   };
 }
 
@@ -26,18 +27,19 @@ export async function fetchCrmLeads() {
   return data.map(mapCrmLead);
 }
 
-export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, observacoes }) {
+export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, ultimoContato, observacoes }) {
   const { data, error } = await supabase
     .from('crm_leads')
     .insert({
-      nome_empresa: nomeEmpresa,
-      contato:      contato || null,
-      telefone:     telefone || null,
-      cidade:       cidade || null,
-      quantidade:   quantidade || 0,
-      etapa:        etapa || 'novo',
-      tipo:         tipo || 'diaria',
-      observacoes:  observacoes || null,
+      nome_empresa:  nomeEmpresa,
+      contato:       contato || null,
+      telefone:      telefone || null,
+      cidade:        cidade || null,
+      quantidade:    quantidade || 0,
+      etapa:         etapa || 'novo',
+      tipo:          tipo || 'diaria',
+      ultimo_contato: ultimoContato || null,
+      observacoes:   observacoes || null,
     })
     .select()
     .single();
@@ -47,14 +49,15 @@ export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, qu
 
 export async function updateCrmLead(id, patch) {
   const p = {};
-  if (patch.nomeEmpresa !== undefined) p.nome_empresa = patch.nomeEmpresa;
-  if (patch.contato     !== undefined) p.contato      = patch.contato;
-  if (patch.telefone    !== undefined) p.telefone     = patch.telefone;
-  if (patch.cidade      !== undefined) p.cidade       = patch.cidade;
-  if (patch.quantidade  !== undefined) p.quantidade   = patch.quantidade;
-  if (patch.etapa       !== undefined) p.etapa        = patch.etapa;
-  if (patch.tipo        !== undefined) p.tipo         = patch.tipo;
-  if (patch.observacoes !== undefined) p.observacoes  = patch.observacoes;
+  if (patch.nomeEmpresa   !== undefined) p.nome_empresa   = patch.nomeEmpresa;
+  if (patch.contato       !== undefined) p.contato        = patch.contato;
+  if (patch.telefone      !== undefined) p.telefone       = patch.telefone;
+  if (patch.cidade        !== undefined) p.cidade         = patch.cidade;
+  if (patch.quantidade    !== undefined) p.quantidade     = patch.quantidade;
+  if (patch.etapa         !== undefined) p.etapa          = patch.etapa;
+  if (patch.tipo          !== undefined) p.tipo           = patch.tipo;
+  if (patch.ultimoContato !== undefined) p.ultimo_contato = patch.ultimoContato;
+  if (patch.observacoes   !== undefined) p.observacoes    = patch.observacoes;
   const { error } = await supabase.from('crm_leads').update(p).eq('id', id);
   if (error) { console.error('[db] updateCrmLead:', error.message); return false; }
   return true;

@@ -5,7 +5,7 @@ import {
   fetchCrmClientes, createCrmCliente, updateCrmCliente, deleteCrmCliente,
 } from './lib/db';
 import {
-  Plus, X, User, Trash2, ChevronLeft, ChevronRight,
+  Plus, X, Trash2, ChevronLeft, ChevronRight,
   CalendarDays, Lock, KanbanSquare, LogOut, Users, MapPin,
 } from 'lucide-react';
 
@@ -82,10 +82,16 @@ const TIPO_OPTIONS = [
 ];
 const tipoInfo = (tipo) => TIPO_OPTIONS.find(t => t.key === tipo) || TIPO_OPTIONS[0];
 
+function formatDDMM(iso) {
+  if (!iso) return '';
+  const [, m, d] = iso.split('-');
+  return `${d}/${m}`;
+}
+
 // ── Modal de Lead (novo / editar) ─────────────────────────────────────────
 function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(initial || {
-    nomeEmpresa: '', contato: '', telefone: '', cidade: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', observacoes: '',
+    nomeEmpresa: '', contato: '', telefone: '', cidade: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', ultimoContato: '', observacoes: '',
   });
   const [saving, setSaving] = useState(false);
   const isEdit = Boolean(initial);
@@ -122,9 +128,15 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
               <input className="input-field" value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: formatPhone(e.target.value) }))} placeholder="(00) 00000-0000" maxLength={15} />
             </div>
           </div>
-          <div>
-            <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Cidade</label>
-            <input className="input-field" value={form.cidade} onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))} placeholder="Cidade do lead" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Cidade</label>
+              <input className="input-field" value={form.cidade} onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))} placeholder="Cidade do lead" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Último Contato</label>
+              <input type="date" className="input-field" value={form.ultimoContato} onChange={e => setForm(f => ({ ...f, ultimoContato: e.target.value }))} />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -191,17 +203,16 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
       style={{
         cursor: 'grab', opacity: dragging ? 0.4 : 1,
         transition: 'opacity 0.15s, transform 0.15s',
+        border: `1.5px solid ${tInfo.color}`,
       }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-bold" style={{ color: '#0F172A' }}>{lead.nomeEmpresa}</p>
-        <span style={{ flexShrink: 0, fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: tInfo.bg, color: tInfo.color }}>
-          {tInfo.label}
-        </span>
-      </div>
-      {lead.contato && (
-        <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#64748B' }}>
-          <User size={11} /> {lead.contato}
+      <p className="text-sm font-bold" style={{ color: '#0F172A' }}>
+        {lead.contato ? lead.contato : lead.nomeEmpresa}
+        {lead.contato && <span style={{ fontWeight: 500, color: '#94A3B8' }}> ({lead.nomeEmpresa})</span>}
+      </p>
+      {lead.ultimoContato && (
+        <p className="text-xs mt-1" style={{ color: '#64748B' }}>
+          ({formatDDMM(lead.ultimoContato)})
         </p>
       )}
       {lead.cidade && (
