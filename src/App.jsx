@@ -6,7 +6,7 @@ import {
 } from './lib/db';
 import {
   Plus, X, User, Trash2, ChevronLeft, ChevronRight,
-  CalendarDays, Lock, KanbanSquare, LogOut, Users,
+  CalendarDays, Lock, KanbanSquare, LogOut, Users, MapPin,
 } from 'lucide-react';
 
 const T  = { color: '#0F172A' };
@@ -76,7 +76,7 @@ const tipoInfo = (tipo) => TIPO_OPTIONS.find(t => t.key === tipo) || TIPO_OPTION
 // ── Modal de Lead (novo / editar) ─────────────────────────────────────────
 function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(initial || {
-    nomeEmpresa: '', contato: '', telefone: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', observacoes: '',
+    nomeEmpresa: '', contato: '', telefone: '', cidade: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', observacoes: '',
   });
   const [saving, setSaving] = useState(false);
   const isEdit = Boolean(initial);
@@ -112,6 +112,10 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
               <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Telefone</label>
               <input className="input-field" value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Cidade</label>
+            <input className="input-field" value={form.cidade} onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))} placeholder="Cidade do lead" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -189,6 +193,11 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
       {lead.contato && (
         <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#64748B' }}>
           <User size={11} /> {lead.contato}
+        </p>
+      )}
+      {lead.cidade && (
+        <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#64748B' }}>
+          <MapPin size={11} /> {lead.cidade}
         </p>
       )}
       {lead.quantidade > 0 && (
