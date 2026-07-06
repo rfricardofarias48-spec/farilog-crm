@@ -18,6 +18,15 @@ const PRIMARY_BG = '#EFF6FF';
 
 const CRM_PASSWORD = '676012';
 
+function formatPhone(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length === 0) return '';
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 // ── Bloqueio por senha ─────────────────────────────────────────────────────
 function CRMGate({ onUnlock }) {
   const [password, setPassword] = useState('');
@@ -110,7 +119,7 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
             </div>
             <div>
               <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Telefone</label>
-              <input className="input-field" value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
+              <input className="input-field" value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: formatPhone(e.target.value) }))} placeholder="(00) 00000-0000" maxLength={15} />
             </div>
           </div>
           <div>
