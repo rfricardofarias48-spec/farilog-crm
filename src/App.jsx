@@ -11,6 +11,10 @@ import {
 const T  = { color: '#0F172A' };
 const TM = { color: '#94A3B8' };
 
+const PRIMARY    = '#2563EB';
+const PRIMARY_DK = '#1D4ED8';
+const PRIMARY_BG = '#EFF6FF';
+
 const fmtCurrency = (val) =>
   val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/R\$\s/, 'R$');
 
@@ -35,8 +39,8 @@ function CRMGate({ onUnlock }) {
     <div className="flex items-center justify-center" style={{ minHeight: '100vh', background: '#EEF1F5' }}>
       <form onSubmit={handleSubmit} className="card p-6" style={{ width: '100%', maxWidth: '320px' }}>
         <div className="flex flex-col items-center mb-4">
-          <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-3" style={{ background: '#FFF2EE' }}>
-            <Lock size={18} style={{ color: '#FF4D0C' }} />
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-3" style={{ background: PRIMARY_BG }}>
+            <Lock size={18} style={{ color: PRIMARY }} />
           </div>
           <h3 className="text-sm font-bold" style={T}>CRM</h3>
           <p className="text-xs mt-1 text-center" style={TM}>Digite a senha para acessar</p>
@@ -159,7 +163,7 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
         </p>
       )}
       {lead.valor > 0 && (
-        <p className="text-xs font-bold mt-1.5" style={{ color: '#FF4D0C' }}>{fmtCurrency(lead.valor)}</p>
+        <p className="text-xs font-bold mt-1.5" style={{ color: PRIMARY }}>{fmtCurrency(lead.valor)}</p>
       )}
     </div>
   );
@@ -237,9 +241,9 @@ function Pipeline() {
               onDrop={e => handleDrop(e, stage.key)}
               style={{
                 flex: '0 0 260px', display: 'flex', flexDirection: 'column',
-                background: isOver ? 'rgba(255,77,12,0.05)' : 'transparent',
+                background: isOver ? 'rgba(37,99,235,0.05)' : 'transparent',
                 borderRadius: '14px', transition: 'background 0.15s',
-                border: isOver ? '1.5px dashed #FF4D0C' : '1.5px dashed transparent',
+                border: isOver ? `1.5px dashed ${PRIMARY}` : '1.5px dashed transparent',
                 padding: '2px',
               }}
             >
@@ -290,7 +294,7 @@ function Pipeline() {
 }
 
 // ── Modal de Compromisso ───────────────────────────────────────────────────
-const EVENT_COLORS = ['#FF4D0C', '#2563EB', '#059669', '#7C3AED', '#D97706', '#DB2777'];
+const EVENT_COLORS = ['#2563EB', '#7C3AED', '#059669', '#DB2777', '#0891B2', '#64748B'];
 
 function EventModal({ initial, defaultDate, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(initial || {
@@ -453,7 +457,7 @@ function Agenda() {
         {/* Navegação */}
         <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
           <div className="flex items-center gap-2">
-            <CalendarDays size={15} style={{ color: '#FF4D0C' }} />
+            <CalendarDays size={15} style={{ color: PRIMARY }} />
             <p className="text-sm font-bold" style={T}>{MONTH_FULL[month]} {year}</p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -492,7 +496,7 @@ function Agenda() {
               >
                 <div className="flex items-center justify-center mb-1" style={{
                   width: '22px', height: '22px', borderRadius: '50%',
-                  background: isToday ? '#FF4D0C' : 'transparent',
+                  background: isToday ? PRIMARY : 'transparent',
                   color: isToday ? 'white' : c.current ? '#0F172A' : '#CBD5E1',
                   fontSize: '11px', fontWeight: isToday ? 800 : 600,
                 }}>
@@ -551,35 +555,37 @@ export default function App() {
   if (!unlocked) return <CRMGate onUnlock={() => setUnlocked(true)} />;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#EEF1F5' }}>
-      <header className="flex items-center justify-between px-6 py-3.5" style={{ background: '#fff', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#FFF2EE' }}>
-            <KanbanSquare size={15} style={{ color: '#FF4D0C' }} />
+    <div style={{ minHeight: '100vh', background: '#EEF1F5', display: 'flex' }}>
+      <aside style={{ width: '220px', flexShrink: 0, background: '#fff', borderRight: '1px solid rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <div className="flex items-center gap-2 px-5" style={{ height: '60px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: PRIMARY_BG }}>
+            <KanbanSquare size={15} style={{ color: PRIMARY }} />
           </div>
           <span className="text-sm font-bold" style={T}>CRM</span>
         </div>
 
-        <div className="flex gap-1 p-0.5 rounded-xl" style={{ background: '#F1F5F9', border: '1px solid rgba(0,0,0,0.06)' }}>
+        <nav className="flex-1 px-3 py-4" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {TABS.map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setTab(key)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
-              style={{ background: tab === key ? '#FF4D0C' : 'transparent', color: tab === key ? 'white' : '#64748B', border: 'none', cursor: 'pointer' }}>
-              <Icon size={13} /> {label}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all w-full"
+              style={{ background: tab === key ? PRIMARY : 'transparent', color: tab === key ? 'white' : '#64748B', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+              <Icon size={16} /> {label}
             </button>
           ))}
+        </nav>
+
+        <div className="p-3" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+          <button
+            onClick={() => { sessionStorage.removeItem('crm_unlocked'); setUnlocked(false); }}
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold w-full"
+            style={{ background: '#F1F5F9', border: 'none', cursor: 'pointer', color: '#64748B', textAlign: 'left' }}
+          >
+            <LogOut size={16} /> Bloquear
+          </button>
         </div>
+      </aside>
 
-        <button
-          onClick={() => { sessionStorage.removeItem('crm_unlocked'); setUnlocked(false); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-          style={{ background: '#F1F5F9', border: 'none', cursor: 'pointer', color: '#64748B' }}
-        >
-          <LogOut size={13} /> Bloquear
-        </button>
-      </header>
-
-      <main className="p-6">
+      <main className="flex-1 p-6" style={{ minWidth: 0 }}>
         {tab === 'pipeline' && <Pipeline />}
         {tab === 'agenda'   && <Agenda />}
       </main>

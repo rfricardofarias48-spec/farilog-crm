@@ -17,7 +17,7 @@ body {
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #E2E8F0; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #FF4D0C; }
+::-webkit-scrollbar-thumb:hover { background: #2563EB; }
 
 /* Cards */
 .card {
@@ -29,7 +29,7 @@ body {
 
 /* Buttons */
 .btn-primary {
-  background: #FF4D0C;
+  background: #2563EB;
   color: white;
   padding: 10px 20px;
   border-radius: 10px;
@@ -39,9 +39,9 @@ body {
   border: none;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 14px rgba(255,77,12,0.3);
+  box-shadow: 0 4px 14px rgba(37,99,235,0.3);
 }
-.btn-primary:hover { background: #E03A00; box-shadow: 0 6px 20px rgba(255,77,12,0.4); transform: translateY(-1px); }
+.btn-primary:hover { background: #1D4ED8; box-shadow: 0 6px 20px rgba(37,99,235,0.4); transform: translateY(-1px); }
 
 .btn-ghost {
   background: #F1F5F9;
@@ -84,7 +84,7 @@ body {
   outline: none;
   transition: border-color 0.2s;
 }
-.input-field:focus { border-color: #FF4D0C; background: #fff; }
+.input-field:focus { border-color: #2563EB; background: #fff; }
 .input-field::placeholder { color: #94A3B8; }
 select.input-field option { background: #fff; color: #0F172A; }
 

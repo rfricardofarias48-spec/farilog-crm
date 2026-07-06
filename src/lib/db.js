@@ -69,7 +69,7 @@ function mapCrmEvento(r) {
     data:      r.data,
     hora:      r.hora ? r.hora.slice(0, 5) : '',
     descricao: r.descricao || '',
-    cor:       r.cor || '#FF4D0C',
+    cor:       r.cor || '#2563EB',
   };
 }
 
@@ -86,7 +86,7 @@ export async function fetchCrmEventos() {
 export async function createCrmEvento({ titulo, data, hora, descricao, cor }) {
   const { data: row, error } = await supabase
     .from('crm_eventos')
-    .insert({ titulo, data, hora: hora || null, descricao: descricao || null, cor: cor || '#FF4D0C' })
+    .insert({ titulo, data, hora: hora || null, descricao: descricao || null, cor: cor || '#2563EB' })
     .select()
     .single();
   if (error) { console.error('[db] createCrmEvento:', error.message); return null; }
