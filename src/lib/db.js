@@ -12,7 +12,7 @@ function mapCrmEmpresa(r) {
 
 export async function fetchCrmEmpresas() {
   const { data, error } = await supabase
-    .from('crm_empresas')
+    .from('empresas')
     .select('*')
     .order('criado_em', { ascending: true });
   if (error) { console.error('[db] fetchCrmEmpresas:', error.message); return []; }
@@ -21,7 +21,7 @@ export async function fetchCrmEmpresas() {
 
 export async function createCrmEmpresa({ nome }) {
   const { data, error } = await supabase
-    .from('crm_empresas')
+    .from('empresas')
     .insert({ nome })
     .select()
     .single();
@@ -32,13 +32,13 @@ export async function createCrmEmpresa({ nome }) {
 export async function updateCrmEmpresa(id, patch) {
   const p = {};
   if (patch.nome !== undefined) p.nome = patch.nome;
-  const { error } = await supabase.from('crm_empresas').update(p).eq('id', id);
+  const { error } = await supabase.from('empresas').update(p).eq('id', id);
   if (error) { console.error('[db] updateCrmEmpresa:', error.message); return false; }
   return true;
 }
 
 export async function deleteCrmEmpresa(id) {
-  const { error } = await supabase.from('crm_empresas').delete().eq('id', id);
+  const { error } = await supabase.from('empresas').delete().eq('id', id);
   if (error) { console.error('[db] deleteCrmEmpresa:', error.message); return false; }
   return true;
 }
@@ -60,7 +60,7 @@ function mapCrmLead(r) {
     reuniaoHora:   r.reuniao_hora ? r.reuniao_hora.slice(0, 5) : '',
     eventoId:      r.evento_id || null,
     observacoes:   r.observacoes || '',
-    empresa:       r.empresa || 'Padrão',
+    empresa:       r.empresa || 'Farilog',
     criadoEm:      r.criado_em,
   };
 }
@@ -74,7 +74,7 @@ export async function fetchCrmLeads(empresa = null) {
   return data.map(mapCrmLead);
 }
 
-export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, ultimoContato, reuniaoData, reuniaoHora, eventoId, observacoes, empresa = 'Padrão' }) {
+export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, ultimoContato, reuniaoData, reuniaoHora, eventoId, observacoes, empresa = 'Farilog' }) {
   const { data, error } = await supabase
     .from('crm_leads')
     .insert({
@@ -90,7 +90,7 @@ export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, qu
       reuniao_hora:   reuniaoHora || null,
       evento_id:      eventoId || null,
       observacoes:    observacoes || null,
-      empresa:        empresa || 'Padrão',
+      empresa:        empresa || 'Farilog',
     })
     .select()
     .single();
@@ -134,7 +134,7 @@ function mapCrmEvento(r) {
     hora:      r.hora ? r.hora.slice(0, 5) : '',
     descricao: r.descricao || '',
     cor:       r.cor || '#2563EB',
-    empresa:   r.empresa || 'Padrão',
+    empresa:   r.empresa || 'Farilog',
   };
 }
 
@@ -147,10 +147,10 @@ export async function fetchCrmEventos(empresa = null) {
   return data.map(mapCrmEvento);
 }
 
-export async function createCrmEvento({ titulo, data, hora, descricao, cor, empresa = 'Padrão' }) {
+export async function createCrmEvento({ titulo, data, hora, descricao, cor, empresa = 'Farilog' }) {
   const { data: row, error } = await supabase
     .from('crm_eventos')
-    .insert({ titulo, data, hora: hora || null, descricao: descricao || null, cor: cor || '#2563EB', empresa: empresa || 'Padrão' })
+    .insert({ titulo, data, hora: hora || null, descricao: descricao || null, cor: cor || '#2563EB', empresa: empresa || 'Farilog' })
     .select()
     .single();
   if (error) { console.error('[db] createCrmEvento:', error.message); return null; }
@@ -186,7 +186,7 @@ function mapCrmCliente(r) {
     contato:     r.contato || '',
     tipo:        r.tipo || 'diaria',
     dataEntrada: r.data_entrada || '',
-    empresa:     r.empresa || 'Padrão',
+    empresa:     r.empresa || 'Farilog',
   };
 }
 
@@ -199,7 +199,7 @@ export async function fetchCrmClientes(empresa = null) {
   return data.map(mapCrmCliente);
 }
 
-export async function createCrmCliente({ nome, responsavel, contato, tipo, dataEntrada, empresa = 'Padrão' }) {
+export async function createCrmCliente({ nome, responsavel, contato, tipo, dataEntrada, empresa = 'Farilog' }) {
   const { data, error } = await supabase
     .from('crm_clientes')
     .insert({
@@ -208,7 +208,7 @@ export async function createCrmCliente({ nome, responsavel, contato, tipo, dataE
       contato:      contato || null,
       tipo:         tipo || 'diaria',
       data_entrada: dataEntrada || null,
-      empresa:      empresa || 'Padrão',
+      empresa:      empresa || 'Farilog',
     })
     .select()
     .single();

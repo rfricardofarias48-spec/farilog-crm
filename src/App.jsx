@@ -143,13 +143,17 @@ function EmpresaSelector({ empresaAtiva, onSelectEmpresa }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
+  const MAX_EMPRESAS = 3;
+  const podeCriarNova = empresas.length < MAX_EMPRESAS;
+
   useEffect(() => {
     fetchCrmEmpresas().then(e => {
       setEmpresas(e);
       setLoading(false);
-      // Se não houver empresa ativa e houver empresas, seleciona a primeira
+      // Se não houver empresa ativa e houver empresas, seleciona a Farilog (ou a primeira)
       if (!empresaAtiva && e.length > 0) {
-        onSelectEmpresa(e[0].nome);
+        const farilog = e.find(emp => emp.nome === 'Farilog');
+        onSelectEmpresa(farilog ? farilog.nome : e[0].nome);
       }
     });
   }, []);
@@ -206,9 +210,15 @@ function EmpresaSelector({ empresaAtiva, onSelectEmpresa }) {
           <h2 className="text-lg font-bold" style={T}>Empresas</h2>
           <p className="text-xs mt-0.5" style={TM}>Selecione a empresa que deseja gerenciar</p>
         </div>
-        <button onClick={openNew} className="btn-primary flex items-center gap-1.5">
-          <Plus size={14} /> Nova Empresa
-        </button>
+        {podeCriarNova ? (
+          <button onClick={openNew} className="btn-primary flex items-center gap-1.5">
+            <Plus size={14} /> Nova Empresa
+          </button>
+        ) : (
+          <span className="text-xs font-semibold px-3 py-2" style={{ color: '#94A3B8' }}>
+            Máximo de {MAX_EMPRESAS} empresas
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -256,11 +266,15 @@ function EmpresaSelector({ empresaAtiva, onSelectEmpresa }) {
         })}
       </div>
 
-      {empresas.length === 0 && (
-        <div className="card py-14 text-center">
+      {empresas.length < 3 && (
+        <div className="card py-10 text-center" style={{ border: '2px dashed rgba(0,0,0,0.1)', background: 'transparent' }}>
           <Building2 size={22} className="mx-auto mb-2" style={{ color: '#CBD5E1' }} />
-          <p className="text-sm" style={TM}>Nenhuma empresa cadastrada ainda</p>
-          <p className="text-xs mt-1" style={TM}>Crie uma empresa para começar a gerenciar</p>
+          <p className="text-sm font-semibold" style={TM}>
+            {empresas.length === 0 ? 'Nenhuma empresa cadastrada ainda' : `Você pode cadastrar mais ${MAX_EMPRESAS - empresas.length} empresa(s)`}
+          </p>
+          <button onClick={openNew} className="btn-primary flex items-center gap-1.5 mt-3 mx-auto">
+            <Plus size={14} /> Cadastrar Empresa
+          </button>
         </div>
       )}
 
