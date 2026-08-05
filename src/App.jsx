@@ -3,10 +3,12 @@ import {
   fetchCrmLeads, createCrmLead, updateCrmLead, deleteCrmLead,
   fetchCrmEventos, createCrmEvento, updateCrmEvento, deleteCrmEvento,
   fetchCrmClientes, createCrmCliente, updateCrmCliente, deleteCrmCliente,
+  fetchCrmEmpresas, createCrmEmpresa, updateCrmEmpresa, deleteCrmEmpresa,
 } from './lib/db';
 import {
   Plus, X, Trash2, ChevronLeft, ChevronRight,
   CalendarDays, Lock, KanbanSquare, LogOut, Users, MapPin,
+  Building2, Pencil,
 } from 'lucide-react';
 
 const T  = { color: '#0F172A' };
@@ -88,8 +90,194 @@ function formatDDMM(iso) {
   return `${d}/${m}`;
 }
 
+// ── Modal de Empresa ────────────────────────────────────────────────────────
+function EmpresaModal({ initial, onClose, onSave, onDelete }) {
+  const [form, setForm] = useState(initial || { nome: '' });
+  const [saving, setSaving] = useState(false);
+  const isEdit = Boolean(initial);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.nome.trim()) return;
+    setSaving(true);
+    await onSave(form);
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-box">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-bold" style={T}>{isEdit ? 'Editar Empresa' : 'Nova Empresa'}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={18} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: '#64748B' }}>Nome da Empresa *</label>
+            <input className="input-field" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Digite o nome da empresa" autoFocus />
+          </div>
+
+          <div className="flex items-center gap-2 pt-2">
+            {isEdit && (
+              <button type="button" className="btn-danger flex items-center gap-1.5" onClick={() => onDelete(initial.id)}>
+                <Trash2 size={13} /> Excluir
+              </button>
+            )}
+            <div className="flex-1" />
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+            <button type="submit" disabled={saving || !form.nome.trim()} className="btn-primary" style={{ opacity: saving || !form.nome.trim() ? 0.6 : 1 }}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Aba Empresas (Seleção de empresa ativa) ─────────────────────────────────
+function EmpresaSelector({ empresaAtiva, onSelectEmpresa }) {
+  const [empresas, setEmpresas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  useEffect(() => {
+    fetchCrmEmpresas().then(e => {
+      setEmpresas(e);
+      setLoading(false);
+      // Se não houver empresa ativa e houver empresas, seleciona a primeira
+      if (!empresaAtiva && e.length > 0) {
+        onSelectEmpresa(e[0].nome);
+      }
+    });
+  }, []);
+
+  const openNew = () => { setEditing(null); setModalOpen(true); };
+  const openEdit = (emp) => { setEditing(emp); setModalOpen(true); };
+
+  const handleSave = async (form) => {
+    if (editing) {
+      const oldNome = editing.nome;
+      setEmpresas(prev => prev.map(e => e.id === editing.id ? { ...e, ...form } : e));
+      await updateCrmEmpresa(editing.id, form);
+      // Se a empresa que foi renomeada é a ativa, atualiza o nome ativo
+      if (empresaAtiva === oldNome) {
+        onSelectEmpresa(form.nome);
+      }
+    } else {
+      const saved = await createCrmEmpresa(form);
+      if (saved) {
+        setEmpresas(prev => [...prev, saved]);
+        // Se for a primeira empresa, seleciona automaticamente
+        if (empresas.length === 0) {
+          onSelectEmpresa(saved.nome);
+        }
+      }
+    }
+    setModalOpen(false);
+  };
+
+  const handleDelete = async (id) => {
+    const deletedEmpresa = empresas.find(e => e.id === id);
+    setEmpresas(prev => {
+      const filtered = prev.filter(e => e.id !== id);
+      // Se a empresa ativa foi excluída, seleciona a primeira disponível
+      if (empresaAtiva === deletedEmpresa?.nome) {
+        if (filtered.length > 0) {
+          onSelectEmpresa(filtered[0].nome);
+        } else {
+          onSelectEmpresa(null);
+        }
+      }
+      return filtered;
+    });
+    setModalOpen(false);
+    await deleteCrmEmpresa(id);
+  };
+
+  if (loading) return <div className="card py-14 text-center text-sm" style={TM}>Carregando...</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold" style={T}>Empresas</h2>
+          <p className="text-xs mt-0.5" style={TM}>Selecione a empresa que deseja gerenciar</p>
+        </div>
+        <button onClick={openNew} className="btn-primary flex items-center gap-1.5">
+          <Plus size={14} /> Nova Empresa
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {empresas.map(emp => {
+          const isActive = empresaAtiva === emp.nome;
+          return (
+            <div
+              key={emp.id}
+              onClick={() => onSelectEmpresa(emp.nome)}
+              style={{
+                cursor: 'pointer',
+                background: isActive ? '#EFF6FF' : 'white',
+                border: `2px solid ${isActive ? PRIMARY : 'rgba(0,0,0,0.08)'}`,
+                borderRadius: '16px',
+                padding: '20px',
+                transition: 'all 0.15s',
+                position: 'relative',
+              }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = 'rgba(0,0,0,0.15)'; }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = 'rgba(0,0,0,0.08)'; }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: isActive ? PRIMARY_BG : '#F1F5F9' }}>
+                  <Building2 size={18} style={{ color: isActive ? PRIMARY : '#64748B' }} />
+                </div>
+                {isActive && (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: PRIMARY, color: 'white' }}>
+                    Ativa
+                  </span>
+                )}
+              </div>
+              <p className="text-sm font-bold" style={{ color: '#0F172A' }}>{emp.nome}</p>
+
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                  onClick={e => { e.stopPropagation(); openEdit(emp); }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: '#F1F5F9', border: 'none', cursor: 'pointer', color: '#64748B' }}
+                >
+                  <Pencil size={12} /> Editar
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {empresas.length === 0 && (
+        <div className="card py-14 text-center">
+          <Building2 size={22} className="mx-auto mb-2" style={{ color: '#CBD5E1' }} />
+          <p className="text-sm" style={TM}>Nenhuma empresa cadastrada ainda</p>
+          <p className="text-xs mt-1" style={TM}>Crie uma empresa para começar a gerenciar</p>
+        </div>
+      )}
+
+      {modalOpen && (
+        <EmpresaModal
+          initial={editing}
+          onClose={() => setModalOpen(false)}
+          onSave={handleSave}
+          onDelete={handleDelete}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── Modal de Lead (novo / editar) ─────────────────────────────────────────
-function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
+function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete, empresaAtiva }) {
   const [form, setForm] = useState(initial || {
     nomeEmpresa: '', contato: '', telefone: '', cidade: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', ultimoContato: '',
     reuniaoData: '', reuniaoHora: '09:00', observacoes: '',
@@ -109,7 +297,7 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete }) {
     }
     setError('');
     setSaving(true);
-    await onSave({ ...form, quantidade: Number(form.quantidade) || 0 });
+    await onSave({ ...form, quantidade: Number(form.quantidade) || 0, empresa: empresaAtiva });
     setSaving(false);
   };
 
@@ -263,7 +451,7 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
 }
 
 // ── Pipeline (Kanban) ──────────────────────────────────────────────────────
-function Pipeline() {
+function Pipeline({ empresaAtiva }) {
   const [leads, setLeads]         = useState([]);
   const [loading, setLoading]     = useState(true);
   const [dragged, setDragged]     = useState(null);
@@ -272,7 +460,10 @@ function Pipeline() {
   const [editing, setEditing]     = useState(null);
   const [newStage, setNewStage]   = useState('novo');
 
-  useEffect(() => { fetchCrmLeads().then(l => { setLeads(l); setLoading(false); }); }, []);
+  useEffect(() => {
+    setLoading(true);
+    fetchCrmLeads(empresaAtiva).then(l => { setLeads(l); setLoading(false); });
+  }, [empresaAtiva]);
 
   const openNew = (stage) => { setEditing(null); setNewStage(stage); setModalOpen(true); };
   const openEdit = (lead) => { setEditing(lead); setModalOpen(true); };
@@ -287,7 +478,7 @@ function Pipeline() {
       await updateCrmEvento(leadRecord.eventoId, { titulo, data: form.reuniaoData, hora: form.reuniaoHora, descricao, cor });
       return leadRecord.eventoId;
     }
-    const evento = await createCrmEvento({ titulo, data: form.reuniaoData, hora: form.reuniaoHora, descricao, cor });
+    const evento = await createCrmEvento({ titulo, data: form.reuniaoData, hora: form.reuniaoHora, descricao, cor, empresa: empresaAtiva });
     if (evento) await updateCrmLead(leadRecord.id, { eventoId: evento.id });
     return evento?.id ?? null;
   };
@@ -329,7 +520,6 @@ function Pipeline() {
     setDragOverCol(null);
     if (dragged && dragged.etapa !== stageKey) {
       if (stageKey === 'reuniao') {
-        // Reunião sempre exige data e horário — abre o formulário em vez de mover direto.
         setEditing({ ...dragged, etapa: 'reuniao' });
         setNewStage('reuniao');
         setModalOpen(true);
@@ -411,6 +601,7 @@ function Pipeline() {
           onClose={closeModal}
           onSave={handleSave}
           onDelete={handleDelete}
+          empresaAtiva={empresaAtiva}
         />
       )}
     </div>
@@ -420,7 +611,7 @@ function Pipeline() {
 // ── Modal de Compromisso ───────────────────────────────────────────────────
 const EVENT_COLORS = ['#2563EB', '#7C3AED', '#059669', '#DB2777', '#0891B2', '#64748B'];
 
-function EventModal({ initial, defaultDate, onClose, onSave, onDelete }) {
+function EventModal({ initial, defaultDate, onClose, onSave, onDelete, empresaAtiva }) {
   const [form, setForm] = useState(initial || {
     titulo: '', data: defaultDate, hora: '09:00', descricao: '', cor: EVENT_COLORS[0],
   });
@@ -431,7 +622,7 @@ function EventModal({ initial, defaultDate, onClose, onSave, onDelete }) {
     e.preventDefault();
     if (!form.titulo.trim() || !form.data) return;
     setSaving(true);
-    await onSave(form);
+    await onSave({ ...form, empresa: empresaAtiva });
     setSaving(false);
   };
 
@@ -498,7 +689,7 @@ const MONTH_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho
 const DOW_SHORT  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const TODAY_ISO  = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
-function Agenda() {
+function Agenda({ empresaAtiva }) {
   const [events, setEvents]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [cursor, setCursor]   = useState(() => { const [y,m] = TODAY_ISO.split('-'); return { year: Number(y), month: Number(m) - 1 }; });
@@ -506,7 +697,10 @@ function Agenda() {
   const [editing, setEditing]     = useState(null);
   const [newDate, setNewDate]     = useState(TODAY_ISO);
 
-  useEffect(() => { fetchCrmEventos().then(ev => { setEvents(ev); setLoading(false); }); }, []);
+  useEffect(() => {
+    setLoading(true);
+    fetchCrmEventos(empresaAtiva).then(ev => { setEvents(ev); setLoading(false); });
+  }, [empresaAtiva]);
 
   const gotoMonth = (delta) => {
     setCursor(({ year, month }) => {
@@ -660,6 +854,7 @@ function Agenda() {
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
           onDelete={handleDelete}
+          empresaAtiva={empresaAtiva}
         />
       )}
     </div>
@@ -667,7 +862,7 @@ function Agenda() {
 }
 
 // ── Modal de Cliente (novo / editar) ───────────────────────────────────────
-function ClienteModal({ initial, onClose, onSave, onDelete }) {
+function ClienteModal({ initial, onClose, onSave, onDelete, empresaAtiva }) {
   const [form, setForm] = useState(initial || {
     nome: '', responsavel: '', contato: '', tipo: 'diaria', dataEntrada: TODAY_ISO,
   });
@@ -678,7 +873,7 @@ function ClienteModal({ initial, onClose, onSave, onDelete }) {
     e.preventDefault();
     if (!form.nome.trim()) return;
     setSaving(true);
-    await onSave(form);
+    await onSave({ ...form, empresa: empresaAtiva });
     setSaving(false);
   };
 
@@ -746,13 +941,16 @@ function ClienteModal({ initial, onClose, onSave, onDelete }) {
 }
 
 // ── Carteira de Clientes ────────────────────────────────────────────────────
-function Carteira() {
+function Carteira({ empresaAtiva }) {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing]     = useState(null);
 
-  useEffect(() => { fetchCrmClientes().then(c => { setClientes(c); setLoading(false); }); }, []);
+  useEffect(() => {
+    setLoading(true);
+    fetchCrmClientes(empresaAtiva).then(c => { setClientes(c); setLoading(false); });
+  }, [empresaAtiva]);
 
   const openNew  = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (cliente) => { setEditing(cliente); setModalOpen(true); };
@@ -839,6 +1037,7 @@ function Carteira() {
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
           onDelete={handleDelete}
+          empresaAtiva={empresaAtiva}
         />
       )}
     </div>
@@ -847,14 +1046,16 @@ function Carteira() {
 
 // ── App CRM (standalone) ────────────────────────────────────────────────────
 const TABS = [
+  { key: 'empresa',  label: 'Empresa',             icon: Building2 },
   { key: 'pipeline', label: 'Pipeline',            icon: KanbanSquare },
   { key: 'agenda',   label: 'Agenda',               icon: CalendarDays },
   { key: 'carteira', label: 'Carteira de Clientes', icon: Users        },
 ];
 
 export default function App() {
-  const [tab, setTab] = useState('pipeline');
+  const [tab, setTab] = useState('empresa');
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('crm_unlocked') === 'true');
+  const [empresaAtiva, setEmpresaAtiva] = useState(null);
 
   if (!unlocked) return <CRMGate onUnlock={() => setUnlocked(true)} />;
 
@@ -878,6 +1079,15 @@ export default function App() {
           ))}
         </nav>
 
+        {empresaAtiva && (
+          <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(0,0,0,0.06)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ background: PRIMARY_BG }}>
+              <Building2 size={14} style={{ color: PRIMARY }} />
+              <span className="text-xs font-semibold truncate" style={{ color: PRIMARY }}>{empresaAtiva}</span>
+            </div>
+          </div>
+        )}
+
         <div className="p-3" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
           <button
             onClick={() => { sessionStorage.removeItem('crm_unlocked'); setUnlocked(false); }}
@@ -890,9 +1100,17 @@ export default function App() {
       </aside>
 
       <main className="flex-1 p-6" style={{ minWidth: 0 }}>
-        {tab === 'pipeline' && <Pipeline />}
-        {tab === 'agenda'   && <Agenda />}
-        {tab === 'carteira' && <Carteira />}
+        {tab === 'empresa'  && <EmpresaSelector empresaAtiva={empresaAtiva} onSelectEmpresa={setEmpresaAtiva} />}
+        {tab === 'pipeline' && <Pipeline empresaAtiva={empresaAtiva} />}
+        {tab === 'agenda'   && <Agenda empresaAtiva={empresaAtiva} />}
+        {tab === 'carteira' && <Carteira empresaAtiva={empresaAtiva} />}
+
+        {tab !== 'empresa' && !empresaAtiva && (
+          <div className="card py-14 text-center">
+            <Building2 size={22} className="mx-auto mb-2" style={{ color: '#CBD5E1' }} />
+            <p className="text-sm" style={TM}>Selecione uma empresa na aba "Empresa" para começar</p>
+          </div>
+        )}
       </main>
     </div>
   );
