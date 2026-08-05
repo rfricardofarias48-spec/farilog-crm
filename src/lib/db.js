@@ -12,7 +12,7 @@ function mapCrmEmpresa(r) {
 
 export async function fetchCrmEmpresas() {
   const { data, error } = await supabase
-    .from('empresas')
+    .from('crm_empresas')
     .select('*')
     .order('criado_em', { ascending: true });
   if (error) { console.error('[db] fetchCrmEmpresas:', error.message); return []; }
@@ -21,7 +21,7 @@ export async function fetchCrmEmpresas() {
 
 export async function createCrmEmpresa({ nome }) {
   const { data, error } = await supabase
-    .from('empresas')
+    .from('crm_empresas')
     .insert({ nome })
     .select()
     .single();
@@ -32,13 +32,13 @@ export async function createCrmEmpresa({ nome }) {
 export async function updateCrmEmpresa(id, patch) {
   const p = {};
   if (patch.nome !== undefined) p.nome = patch.nome;
-  const { error } = await supabase.from('empresas').update(p).eq('id', id);
+  const { error } = await supabase.from('crm_empresas').update(p).eq('id', id);
   if (error) { console.error('[db] updateCrmEmpresa:', error.message); return false; }
   return true;
 }
 
 export async function deleteCrmEmpresa(id) {
-  const { error } = await supabase.from('empresas').delete().eq('id', id);
+  const { error } = await supabase.from('crm_empresas').delete().eq('id', id);
   if (error) { console.error('[db] deleteCrmEmpresa:', error.message); return false; }
   return true;
 }
