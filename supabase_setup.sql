@@ -9,22 +9,49 @@ CREATE TABLE IF NOT EXISTS crm_empresas (
   criado_em TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. Adicionar coluna empresa nas tabelas do CRM
-ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS empresa TEXT DEFAULT 'Farilog';
-ALTER TABLE crm_eventos ADD COLUMN IF NOT EXISTS empresa TEXT DEFAULT 'Farilog';
-ALTER TABLE crm_clientes ADD COLUMN IF NOT EXISTS empresa TEXT DEFAULT 'Farilog';
+-- 2. Habilitar Row Level Security e criar políticas para permitir acesso anônimo
+ALTER TABLE crm_empresas ENABLE ROW LEVEL SECURITY;
+
+-- Política SELECT (ler empresas)
+DROP POLICY IF EXISTS "Allow anon select crm_empresas" ON crm_empresas;
+CREATE POLICY "Allow anon select crm_empresas"
+  ON crm_empresas FOR SELECT
+  USING (true);
+
+-- Política INSERT (criar empresas)
+DROP POLICY IF EXISTS "Allow anon insert crm_empresas" ON crm_empresas;
+CREATE POLICY "Allow anon insert crm_empresas"
+  ON crm_empresas FOR INSERT
+  WITH CHECK (true);
+
+-- Política UPDATE (editar empresas)
+DROP POLICY IF EXISTS "Allow anon update crm_empresas" ON crm_empresas;
+CREATE POLICY "Allow anon update crm_empresas"
+  ON crm_empresas FOR UPDATE
+  USING (true);
+
+-- Política DELETE (excluir empresas)
+DROP POLICY IF EXISTS "Allow anon delete crm_empresas" ON crm_empresas;
+CREATE POLICY "Allow anon delete crm_empresas"
+  ON crm_empresas FOR DELETE
+  USING (true);
 
 -- 3. Inserir a empresa Farilog na tabela exclusiva do CRM
 INSERT INTO crm_empresas (nome) 
 SELECT 'Farilog' 
 WHERE NOT EXISTS (SELECT 1 FROM crm_empresas WHERE nome = 'Farilog');
 
--- 4. Atualizar todos os dados existentes para a empresa Farilog
+-- 4. Adicionar coluna empresa nas tabelas do CRM
+ALTER TABLE crm_leads ADD COLUMN IF NOT EXISTS empresa TEXT DEFAULT 'Farilog';
+ALTER TABLE crm_eventos ADD COLUMN IF NOT EXISTS empresa TEXT DEFAULT 'Farilog';
+ALTER TABLE crm_clientes ADD COLUMN IF NOT EXISTS empresa TEXT DEFAULT 'Farilog';
+
+-- 5. Atualizar todos os dados existentes para a empresa Farilog
 UPDATE crm_leads SET empresa = 'Farilog' WHERE empresa IS NULL;
 UPDATE crm_eventos SET empresa = 'Farilog' WHERE empresa IS NULL;
 UPDATE crm_clientes SET empresa = 'Farilog' WHERE empresa IS NULL;
 
--- 5. Índices para performance
+-- 6. Índices para performance
 CREATE INDEX IF NOT EXISTS idx_crm_leads_empresa ON crm_leads(empresa);
 CREATE INDEX IF NOT EXISTS idx_crm_eventos_empresa ON crm_eventos(empresa);
 CREATE INDEX IF NOT EXISTS idx_crm_clientes_empresa ON crm_clientes(empresa);
