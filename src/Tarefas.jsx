@@ -232,7 +232,7 @@ function TasksList({ tarefas, hojeReg, onAdd, onToggle, onDelete, onSaveDia, sav
     if (ok) {
       setFeedback({ tipo: 'ok', msg: `Registro salvo às ${fmtHora(new Date().toISOString())}.` });
     } else {
-      setFeedback({ tipo: 'erro', msg: 'Não foi possível salvar. Verifique sua conexão e se o script supabase_tarefas.sql foi executado no Supabase.' });
+      setFeedback({ tipo: 'erro', msg: 'Não foi possível salvar. Verifique sua conexão e se o script supabase_novo_banco.sql foi executado no Supabase.' });
     }
   };
 
@@ -296,7 +296,7 @@ function TasksList({ tarefas, hojeReg, onAdd, onToggle, onDelete, onSaveDia, sav
 
         {erroTarefa && (
           <p className="text-xs font-semibold mt-2" style={{ color: 'var(--danger)' }}>
-            Não foi possível adicionar a tarefa. Verifique sua conexão e se o script supabase_tarefas.sql foi executado no Supabase.
+            Não foi possível adicionar a tarefa. Verifique sua conexão e se o script supabase_novo_banco.sql foi executado no Supabase.
           </p>
         )}
 
