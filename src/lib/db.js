@@ -176,6 +176,96 @@ export async function deleteCrmEvento(id) {
   return true;
 }
 
+// ── Tarefas (aba Tarefas) ───────────────────────────────────────────────────
+
+function mapCrmTarefa(r) {
+  return {
+    id:          r.id,
+    titulo:      r.titulo,
+    concluida:   Boolean(r.concluida),
+    criadaEm:    r.criada_em,
+    concluidaEm: r.concluida_em || null,
+  };
+}
+
+export async function fetchCrmTarefas() {
+  const { data, error } = await supabase
+    .from('crm_tarefas')
+    .select('*')
+    .order('criada_em', { ascending: false });
+  if (error) { console.error('[db] fetchCrmTarefas:', error.message); return []; }
+  return data.map(mapCrmTarefa);
+}
+
+export async function createCrmTarefa({ titulo }) {
+  const { data, error } = await supabase
+    .from('crm_tarefas')
+    .insert({ titulo })
+    .select()
+    .single();
+  if (error) { console.error('[db] createCrmTarefa:', error.message); return null; }
+  return mapCrmTarefa(data);
+}
+
+export async function updateCrmTarefa(id, patch) {
+  const p = {};
+  if (patch.titulo      !== undefined) p.titulo       = patch.titulo;
+  if (patch.concluida   !== undefined) {
+    p.concluida   = patch.concluida;
+    p.concluida_em = patch.concluida ? new Date().toISOString() : null;
+  }
+  const { error } = await supabase.from('crm_tarefas').update(p).eq('id', id);
+  if (error) { console.error('[db] updateCrmTarefa:', error.message); return false; }
+  return true;
+}
+
+export async function deleteCrmTarefa(id) {
+  const { error } = await supabase.from('crm_tarefas').delete().eq('id', id);
+  if (error) { console.error('[db] deleteCrmTarefa:', error.message); return false; }
+  return true;
+}
+
+// ── Registro diário (resumo + nota de produtividade) ───────────────────────
+
+function mapCrmDiario(r) {
+  return {
+    id:           r.id,
+    data:         r.data,
+    resumo:       r.resumo || '',
+    nota:         Number(r.nota ?? 0),
+    atualizadoEm: r.atualizado_em,
+  };
+}
+
+export async function fetchCrmDiarios() {
+  const { data, error } = await supabase
+    .from('crm_diarios')
+    .select('*')
+    .order('data');
+  if (error) { console.error('[db] fetchCrmDiarios:', error.message); return []; }
+  return data.map(mapCrmDiario);
+}
+
+// Salva (insere ou atualiza) o registro de um dia — um registro por data.
+export async function saveCrmDiario({ data, resumo, nota }) {
+  const { data: row, error } = await supabase
+    .from('crm_diarios')
+    .upsert(
+      { data, resumo: resumo || null, nota, atualizado_em: new Date().toISOString() },
+      { onConflict: 'data' },
+    )
+    .select()
+    .single();
+  if (error) { console.error('[db] saveCrmDiario:', error.message); return null; }
+  return mapCrmDiario(row);
+}
+
+export async function deleteCrmDiario(id) {
+  const { error } = await supabase.from('crm_diarios').delete().eq('id', id);
+  if (error) { console.error('[db] deleteCrmDiario:', error.message); return false; }
+  return true;
+}
+
 // ── Carteira de Clientes ────────────────────────────────────────────────────
 
 function mapCrmCliente(r) {
