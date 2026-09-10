@@ -12,15 +12,15 @@ import {
   Building2, Pencil, Truck, ListTodo,
 } from 'lucide-react';
 
-// ── Paleta Farilog ─────────────────────────────────────────────────────────
+// ── Paleta ─────────────────────────────────────────────────────────────────
 const C = {
   text:       '#101B2F',
   muted:      '#5C6B84',
   faint:      '#92A0B5',
   line:       '#E4E9F1',
-  signal:     '#FF6B2C',
-  signalDeep: '#F25C1F',
-  signalSoft: '#FFF0E6',
+  signal:     '#2563EB',
+  signalDeep: '#1D4ED8',
+  signalSoft: '#EFF6FF',
   ink900:     '#0B1426',
   ink950:     '#070D1A',
 };
@@ -44,10 +44,10 @@ function LogoMark({ size = 34 }) {
   return (
     <div className="flex items-center justify-center flex-shrink-0" style={{
       width: size, height: size, borderRadius: Math.round(size * 0.28),
-      background: 'linear-gradient(135deg, #FF8A3C 0%, #F25C1F 100%)',
-      boxShadow: '0 4px 14px rgba(255,107,44,0.4)',
+      background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+      boxShadow: '0 4px 14px rgba(37,99,235,0.4)',
     }}>
-      <Truck size={Math.round(size * 0.52)} color="#070D1A" strokeWidth={2.4} />
+      <Truck size={Math.round(size * 0.52)} color="#FFFFFF" strokeWidth={2.4} />
     </div>
   );
 }
@@ -70,7 +70,7 @@ function CRMGate({ onUnlock }) {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'radial-gradient(1100px 520px at 18% -12%, rgba(255,107,44,0.16), transparent 62%), linear-gradient(180deg, #0B1426 0%, #070D1A 100%)',
+      background: 'radial-gradient(1100px 520px at 18% -12%, rgba(59,130,246,0.2), transparent 62%), linear-gradient(180deg, #0B1426 0%, #070D1A 100%)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
       position: 'relative', overflow: 'hidden',
     }}>
@@ -83,7 +83,7 @@ function CRMGate({ onUnlock }) {
         <div className="card" style={{ padding: '34px 32px 30px', borderRadius: 22, boxShadow: '0 30px 90px rgba(0,0,0,0.5)' }}>
           <div className="flex flex-col items-center mb-6">
             <LogoMark size={52} />
-            <h2 className="mt-4" style={{ fontSize: 21, fontWeight: 700, color: C.text, margin: '14px 0 0' }}>Farilog CRM</h2>
+            <h2 className="mt-4" style={{ fontSize: 21, fontWeight: 700, color: C.text, margin: '14px 0 0' }}>Produtividade/CRM</h2>
             <p className="text-xs mt-1 text-center" style={{ color: C.muted }}>Área restrita · digite sua senha para acessar</p>
           </div>
           <form onSubmit={handleSubmit}>
@@ -104,9 +104,6 @@ function CRMGate({ onUnlock }) {
             </button>
           </form>
         </div>
-        <p className="text-center mt-4" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.28)' }}>
-          FARILOG · LOGÍSTICA
-        </p>
       </div>
     </div>
   );
@@ -288,7 +285,7 @@ function EmpresaSelector({ empresaAtiva, onSelectEmpresa }) {
                   <Building2 size={18} style={{ color: isActive ? C.signalDeep : C.muted }} />
                 </div>
                 {isActive && (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: C.signal, color: C.ink950 }}>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: C.signal, color: '#fff' }}>
                     Ativa
                   </span>
                 )}
@@ -613,7 +610,7 @@ function Pipeline({ empresaAtiva }) {
               onDrop={e => handleDrop(e, stage.key)}
               style={{
                 flex: '0 0 264px', display: 'flex', flexDirection: 'column',
-                background: isOver ? 'rgba(255,107,44,0.05)' : 'transparent',
+                background: isOver ? 'rgba(59,130,246,0.06)' : 'transparent',
                 borderRadius: '14px', transition: 'background 0.15s',
                 border: isOver ? '1.5px dashed var(--signal)' : '1.5px dashed transparent',
                 padding: '2px',
@@ -666,7 +663,7 @@ function Pipeline({ empresaAtiva }) {
 }
 
 // ── Modal de Compromisso ───────────────────────────────────────────────────
-const EVENT_COLORS = ['#FF6B2C', '#7C3AED', '#059669', '#DB2777', '#0891B2', '#1B2A4A'];
+const EVENT_COLORS = ['#2563EB', '#7C3AED', '#059669', '#DB2777', '#0891B2', '#1B2A4A'];
 
 function EventModal({ initial, defaultDate, onClose, onSave, onDelete, empresaAtiva }) {
   const [form, setForm] = useState(initial || {
@@ -873,7 +870,7 @@ function Agenda({ empresaAtiva }) {
                   <div className="flex items-center justify-center mb-1" style={{
                     width: '22px', height: '22px', borderRadius: '50%',
                     background: isToday ? C.signal : 'transparent',
-                    color: isToday ? C.ink950 : c.current ? C.text : '#C6CFDD',
+                    color: isToday ? '#fff' : c.current ? C.text : '#C6CFDD',
                     fontSize: '11px', fontWeight: isToday ? 800 : 600,
                   }}>
                     {c.day}
@@ -1124,8 +1121,8 @@ export default function App() {
         <div className="flex items-center gap-2.5 px-4" style={{ height: 62, borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
           <LogoMark size={32} />
           <div className="side-brand-text" style={{ lineHeight: 1.15 }}>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: 14.5, fontWeight: 700, color: '#fff', margin: 0 }}>Farilog</p>
-            <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.35)', margin: 0 }}>CRM</p>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: 14.5, fontWeight: 700, color: '#fff', margin: 0 }}>Produtividade</p>
+            <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.35)', margin: 0 }}>/ CRM</p>
           </div>
         </div>
 
@@ -1139,9 +1136,9 @@ export default function App() {
 
         {empresaAtiva && (
           <div className="side-empresa px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-            <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl" style={{ background: 'rgba(255,107,44,0.12)', border: '1px solid rgba(255,107,44,0.25)' }}>
-              <Building2 size={14} style={{ color: C.signal }} />
-              <span className="text-xs font-semibold truncate" style={{ color: '#FFB48C' }}>{empresaAtiva}</span>
+            <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl" style={{ background: 'rgba(59,130,246,0.16)', border: '1px solid rgba(59,130,246,0.35)' }}>
+              <Building2 size={14} style={{ color: '#60A5FA' }} />
+              <span className="text-xs font-semibold truncate" style={{ color: '#93C5FD' }}>{empresaAtiva}</span>
             </div>
           </div>
         )}

@@ -105,7 +105,7 @@ function Chart15({ diarios }) {
           <div style={{
             position: 'absolute', left: 0, right: 0,
             bottom: `calc(${(media / 10) * 100}% + 24px)`,
-            borderTop: '2px dashed rgba(255,107,44,0.45)',
+            borderTop: '2px dashed rgba(59,130,246,0.5)',
             pointerEvents: 'none',
           }} />
         )}

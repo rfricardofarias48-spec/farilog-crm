@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FARILOG CRM — Design System
+   PRODUTIVIDADE/CRM — Design System
    Direção: "sala de controle logístico" — tinta azul-noite, neblina clara,
-   acento laranja-carga. Display: Space Grotesk · Corpo: Inter.
+   acento azul. Display: Space Grotesk · Corpo: Inter.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -23,9 +23,9 @@
   --bg:   #F2F4F8;
   --card: #FFFFFF;
 
-  --signal:      #FF6B2C;
-  --signal-deep: #F25C1F;
-  --signal-soft: #FFF0E6;
+  --signal:      #2563EB;
+  --signal-deep: #1D4ED8;
+  --signal-soft: #EFF6FF;
 
   --ok:      #0FA36B;
   --ok-soft: #E7F6EF;
@@ -94,8 +94,8 @@ h1, h2, h3, .display {
 .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
 .btn-accent {
-  background: linear-gradient(135deg, var(--signal) 0%, var(--signal-deep) 100%);
-  color: var(--ink-950);
+  background: linear-gradient(135deg, #3B82F6 0%, var(--signal-deep) 100%);
+  color: #fff;
   padding: 10px 20px;
   border-radius: 12px;
   font-size: 13px;
@@ -104,9 +104,9 @@ h1, h2, h3, .display {
   border: none;
   cursor: pointer;
   transition: all 0.18s ease;
-  box-shadow: 0 4px 14px rgba(255, 107, 44, 0.35);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
 }
-.btn-accent:hover { filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255, 107, 44, 0.45); }
+.btn-accent:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45); }
 .btn-accent:active { transform: translateY(0); }
 .btn-accent:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
@@ -151,7 +151,7 @@ h1, h2, h3, .display {
   outline: none;
   transition: border-color 0.18s, box-shadow 0.18s;
 }
-.input-field:focus { border-color: var(--signal); box-shadow: 0 0 0 3px rgba(255, 107, 44, 0.14); }
+.input-field:focus { border-color: var(--signal); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
 .input-field::placeholder { color: var(--faint); }
 select.input-field option { background: #fff; color: var(--text); }
 
@@ -205,7 +205,7 @@ select.input-field option { background: #fff; color: var(--text); }
 .side-link:hover { color: #E6EBF5; background: rgba(255, 255, 255, 0.05); }
 .side-link.active {
   color: #fff;
-  background: linear-gradient(90deg, rgba(255, 107, 44, 0.16), rgba(255, 107, 44, 0.05));
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.06));
 }
 .side-link.active::before {
   content: '';
@@ -371,7 +371,7 @@ select.input-field option { background: #fff; color: var(--text); }
   .side-link { padding: 9px 12px; white-space: nowrap; width: auto; }
   .side-link.active::before { display: none; }
   .sidebar .side-footer { border: none !important; padding: 0 !important; margin-left: auto; }
-  .sidebar .side-footer .side-link { padding: 9px; color: #FFB48C; }
+  .sidebar .side-footer .side-link { padding: 9px; color: #93C5FD; }
   .sidebar .side-footer .side-link .side-link-text { display: none; }
   .sidebar .side-empresa { display: none; }
   .sidebar .side-brand-text { display: none; }
