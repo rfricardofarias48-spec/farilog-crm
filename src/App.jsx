@@ -814,7 +814,7 @@ function Agenda({ empresaAtiva }) {
   if (loading) return <div className="card py-14 text-center text-sm" style={TM}>Carregando...</div>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 page-fill">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-bold" style={T}>Agenda</h2>
@@ -825,7 +825,7 @@ function Agenda({ empresaAtiva }) {
         </button>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden fill-card">
         {/* Navegação */}
         <div className="flex items-center justify-between px-5 py-3.5 flex-wrap gap-2" style={{ borderBottom: '1px solid var(--line)' }}>
           <div className="flex items-center gap-2">
@@ -847,8 +847,8 @@ function Agenda({ empresaAtiva }) {
         </div>
 
         {/* Grade */}
-        <div className="scroll-x">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', minWidth: 640 }}>
+        <div className="fill-body scroll-x">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: 'repeat(6, minmax(0, 1fr))', minWidth: 640, minHeight: 420, flex: 1 }}>
             {cells.map((c, idx) => {
               const iso = isoOf(c);
               const isToday = iso === TODAY_ISO;
@@ -858,7 +858,8 @@ function Agenda({ empresaAtiva }) {
                   key={idx}
                   onClick={() => openNew(iso)}
                   style={{
-                    minHeight: '92px', padding: '6px', cursor: 'pointer',
+                    padding: '6px', cursor: 'pointer', overflow: 'hidden',
+                    display: 'flex', flexDirection: 'column',
                     borderRight: (idx % 7 !== 6) ? '1px solid var(--line)' : 'none',
                     borderBottom: '1px solid var(--line)',
                     background: c.current ? 'transparent' : '#F8FAFC',
@@ -875,8 +876,8 @@ function Agenda({ empresaAtiva }) {
                   }}>
                     {c.day}
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    {dayEvents.slice(0, 3).map(ev => (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minHeight: 0 }}>
+                    {dayEvents.slice(0, 4).map(ev => (
                       <div
                         key={ev.id}
                         onClick={e => { e.stopPropagation(); openEdit(ev); }}
@@ -890,9 +891,9 @@ function Agenda({ empresaAtiva }) {
                         {ev.hora && <span style={{ opacity: 0.85 }}>{ev.hora} </span>}{ev.titulo}
                       </div>
                     ))}
-                    {dayEvents.length > 3 && (
+                    {dayEvents.length > 4 && (
                       <span style={{ fontSize: '10px', fontWeight: 600, color: C.faint, paddingLeft: '4px' }}>
-                        +{dayEvents.length - 3} mais
+                        +{dayEvents.length - 4} mais
                       </span>
                     )}
                   </div>
