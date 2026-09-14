@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   fetchCrmProspectas, createCrmProspectasBulk, updateCrmProspecta, deleteCrmProspecta,
-  createCrmLead,
+  createCrmLead, updateCrmLead, createCrmEvento,
 } from './lib/db';
 import { parseHurmaCsv, readCsvFile, dedupKey, phoneDigits } from './lib/hurmaCsv';
 import {
   PhoneCall, Upload as UploadIcon, FileSpreadsheet, Search, X, Trash2,
-  CalendarClock, Check, ChevronRight, Phone, MapPin, Building2, PartyPopper,
+  CalendarClock, CalendarDays, Check, ChevronRight, Phone, MapPin, Building2, PartyPopper,
   SlidersHorizontal,
 } from 'lucide-react';
 
@@ -19,6 +19,7 @@ const STATUS = {
   sem_interesse: { label: 'Sem interesse',   color: '#DC2626', bg: '#FEF2F2' },
   nao_atendeu:   { label: 'Não atendeu',     color: '#D97706', bg: '#FFFBEB' },
   retornar:      { label: 'Retornar em',     color: '#7C3AED', bg: '#F5F3FF' },
+  reuniao:       { label: 'Reunião agendada', color: '#0891B2', bg: '#ECFEFF' },
 };
 const statusInfo = (s) => STATUS[s] || STATUS.novo;
 
@@ -34,7 +35,8 @@ function isoAddDays(iso, n) {
 }
 
 // Lead que atendeu e demonstrou interesse vira um lead no Pipeline (CRM)
-async function moverParaPipeline(lead, empresaAtiva) {
+// `extra` sobrescreve campos — usado quando a reunião é agendada direto no fluxo (etapa 'reuniao' + data/hora)
+async function moverParaPipeline(lead, empresaAtiva, extra = {}) {
   const obs = [`Origem: Prospecção${lead.lista ? ` (${lead.lista})` : ''}`];
   if (lead.nicho) obs.push(`Nicho: ${lead.nicho}`);
   if (lead.obs)   obs.push(lead.obs);
@@ -49,6 +51,7 @@ async function moverParaPipeline(lead, empresaAtiva) {
     ultimoContato: TODAY_ISO,
     observacoes:   obs.join(' · '),
     empresa:       empresaAtiva || 'Farilog',
+    ...extra,
   });
 }
 
@@ -149,7 +152,7 @@ function ProspDashboard({ prospectas }) {
   const hoje = TODAY_ISO;
   const contatadasHoje = prospectas.filter(p => p.ultimoContato === hoje);
   const porStatus = (s) => prospectas.filter(p => p.status === s).length;
-  const atendentes = contatadasHoje.filter(p => p.status === 'interessado' || p.status === 'sem_interesse' || p.status === 'retornar').length;
+  const atendentes = contatadasHoje.filter(p => p.status === 'interessado' || p.status === 'sem_interesse' || p.status === 'retornar' || p.status === 'reuniao').length;
 
   return (
     <div className="page-fill space-y-4">
@@ -362,7 +365,7 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
             {prospectas.length === 0
               ? 'Nenhum lead importado ainda — use a sub-aba "Upload de Listas".'
               : somenteContatados && !prospectas.some(p => p.status !== 'novo')
-                ? 'Nenhum contato feito ainda — comece em "Iniciar Prospecção".'
+                ? 'Nenhum contato feito ainda — comece em "Prospecção Ativa".'
                 : 'Nenhum lead com esses filtros.'}
           </p>
         </div>
@@ -518,12 +521,68 @@ function ProspUpload({ prospectas, setProspectas }) {
   );
 }
 
-// ── Iniciar Prospecção (um contato por vez) ──────────────────────────────────
+// ── Prospecção Ativa (um contato por vez) ────────────────────────────────────
+
+// Caixa de detalhes do agendamento: confirma data/hora/local antes de criar o
+// compromisso na Agenda e mandar o lead quente para o Pipeline (etapa Reunião)
+function ReuniaoModal({ lead, onClose, onConfirm }) {
+  const [data, setData]   = useState('');
+  const [hora, setHora]   = useState('09:00');
+  const [local, setLocal] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!data || !hora) { setError('Informe a data e o horário da reunião.'); return; }
+    setSaving(true);
+    await onConfirm({ data, hora, local });
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 430 }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-bold flex items-center gap-2" style={{ color: 'var(--text)' }}>
+            <CalendarDays size={17} style={{ color: '#0891B2' }} /> Agendar Reunião
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--faint)' }}><X size={18} /></button>
+        </div>
+        <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+          <b style={{ color: 'var(--text)' }}>{lead.empresa}</b>{lead.cidade ? ` · ${lead.cidade}` : ''} — a reunião será criada na <b>Agenda</b> e o lead enviado ao <b>Pipeline</b> na etapa "Reunião".
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Data *</label>
+            <input type="date" className="input-field" value={data} min={TODAY_ISO} onChange={e => { setData(e.target.value); setError(''); }} autoFocus />
+          </div>
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Horário *</label>
+            <input type="time" className="input-field" value={hora} onChange={e => { setHora(e.target.value); setError(''); }} />
+          </div>
+        </div>
+        <div className="mt-3">
+          <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Local / link (opcional)</label>
+          <input className="input-field" value={local} onChange={e => setLocal(e.target.value)} placeholder="Ex.: Google Meet, visita presencial..." />
+        </div>
+        {error && <p className="text-xs font-semibold mt-3" style={{ color: 'var(--danger, #DC2626)' }}>{error}</p>}
+        <div className="flex items-center justify-end gap-2 pt-4">
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" disabled={saving} onClick={submit}>
+            {saving ? 'Agendando...' : 'Agendar reunião'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
   const [cidade, setCidade]   = useState('');
   const [obs, setObs]         = useState('');
   const [retornoData, setRetornoData] = useState('');
   const [aviso, setAviso]     = useState('');
+  const [reuniaoAberta, setReuniaoAberta] = useState(false);
 
   const cidades = useMemo(() => {
     const map = {};
@@ -561,11 +620,43 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
     }
   };
 
+  // Reunião agendada no fluxo: lead quente vai para o Pipeline na etapa "Reunião"
+  // e um compromisso é criado na Agenda, vinculado ao lead pelo eventoId
+  const agendarReuniao = async ({ data, hora, local }) => {
+    if (!atual) return;
+    const patch = { status: 'reuniao', ultimoContato: TODAY_ISO, retornoEm: '', obs: obs || atual.obs };
+    setProspectas(prev => prev.map(p => p.id === atual.id ? { ...p, ...patch } : p));
+    setReuniaoAberta(false);
+    setObs(''); setRetornoData('');
+    await updateCrmProspecta(atual.id, patch);
+
+    const obsLead = [`Origem: Prospecção${atual.lista ? ` (${atual.lista})` : ''}`];
+    if (atual.nicho) obsLead.push(`Nicho: ${atual.nicho}`);
+    if (local)       obsLead.push(`Local: ${local}`);
+    if (obs)         obsLead.push(obs);
+
+    const lead = await moverParaPipeline({ ...atual, ...patch }, empresaAtiva, {
+      etapa: 'reuniao', reuniaoData: data, reuniaoHora: hora, observacoes: obsLead.join(' · '),
+    });
+    const evento = await createCrmEvento({
+      titulo:    `Reunião — ${atual.empresa}`,
+      data, hora,
+      descricao: [atual.cidade && `Cidade: ${atual.cidade}`, atual.telefone && `Tel: ${atual.telefone}`, local && `Local: ${local}`, obs].filter(Boolean).join(' · '),
+      cor:       '#7C3AED',
+      empresa:   empresaAtiva || 'Farilog',
+    });
+    if (lead && evento) await updateCrmLead(lead.id, { eventoId: evento.id });
+
+    setAviso(lead && evento
+      ? `"${atual.empresa}" — reunião ${fmtDDMM(data)} às ${hora}: no Pipeline (etapa Reunião) e na Agenda`
+      : 'Reunião registrada na prospecção, mas falhou ao enviar para o Pipeline/Agenda — confira a empresa ativa');
+  };
+
   if (!cidade) {
     return (
       <div className="space-y-4">
         <div>
-          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Iniciar Prospecção</h2>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Prospecção Ativa</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Escolha a cidade — o app mostra um contato por vez</p>
         </div>
         {cidades.length === 0 ? (
@@ -656,7 +747,7 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
           <input className="input-field" value={obs} onChange={e => setObs(e.target.value)} placeholder="Quem atendeu, o que falou..." />
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-5">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 mt-5">
           <button className="prosp-status-btn" style={{ '--c': '#059669', '--bg': '#ECFDF5' }} onClick={() => registrar('interessado')}>
             <Check size={16} /> Atendeu — Interessado
           </button>
@@ -669,6 +760,9 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
           <button className="prosp-status-btn" style={{ '--c': '#7C3AED', '--bg': '#F5F3FF' }} onClick={() => registrar('retornar')}>
             <CalendarClock size={16} /> Retornar em
           </button>
+          <button className="prosp-status-btn" style={{ '--c': '#0891B2', '--bg': '#ECFEFF' }} onClick={() => setReuniaoAberta(true)}>
+            <CalendarDays size={16} /> Agendar Reunião
+          </button>
         </div>
 
         <div className="flex items-center gap-2 mt-4">
@@ -677,6 +771,10 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
           <span className="text-xs" style={{ color: 'var(--faint)' }}>use "Retornar em" para agendar; vazio = hoje</span>
         </div>
       </div>
+
+      {reuniaoAberta && atual && (
+        <ReuniaoModal lead={atual} onClose={() => setReuniaoAberta(false)} onConfirm={agendarReuniao} />
+      )}
     </div>
   );
 }

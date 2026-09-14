@@ -1121,7 +1121,7 @@ const NAV = [
       { key: 'prosp_dashboard', label: 'Dashboard',           grupo: 'Prospecção' },
       { key: 'prosp_leads',     label: 'Leads' },
       { key: 'prosp_upload',    label: 'Upload de Listas' },
-      { key: 'prosp_fluxo',     label: 'Iniciar Prospecção' },
+      { key: 'prosp_fluxo',     label: 'Prospecção Ativa' },
     ],
   },
 ];
