@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import {
   fetchCrmLeads, createCrmLead, updateCrmLead, deleteCrmLead,
   fetchCrmEventos, createCrmEvento, updateCrmEvento, deleteCrmEvento,
@@ -10,7 +10,7 @@ import MetasModule from './Metas';
 import ProspeccaoModule from './Prospeccao';
 import {
   Plus, X, Trash2, ChevronLeft, ChevronRight,
-  CalendarDays, Lock, LogOut, Users, MapPin, Zap, PhoneCall,
+  CalendarDays, Lock, LogOut, Users, MapPin, Zap,
   Building2, Pencil, Truck,
 } from 'lucide-react';
 
@@ -1118,15 +1118,10 @@ const NAV = [
       { key: 'pipeline', label: 'Pipeline' },
       { key: 'agenda',   label: 'Agenda' },
       { key: 'carteira', label: 'Carteira de Clientes' },
-    ],
-  },
-  {
-    key: 'prospeccao', label: 'Prospecção', icon: PhoneCall,
-    subs: [
-      { key: 'dashboard', label: 'Dashboard' },
-      { key: 'leads',     label: 'Leads' },
-      { key: 'upload',    label: 'Upload de Listas' },
-      { key: 'fluxo',     label: 'Iniciar Prospecção' },
+      { key: 'prosp_dashboard', label: 'Dashboard',           grupo: 'Prospecção' },
+      { key: 'prosp_leads',     label: 'Leads' },
+      { key: 'prosp_upload',    label: 'Upload de Listas' },
+      { key: 'prosp_fluxo',     label: 'Iniciar Prospecção' },
     ],
   },
 ];
@@ -1134,7 +1129,7 @@ const NAV = [
 export default function App() {
   const [aba, setAba]       = useState('produtividade');
   const [aberta, setAberta] = useState(true);
-  const [subs, setSubs]     = useState({ produtividade: 'dashboard', crm: 'empresa', prospeccao: 'dashboard' });
+  const [subs, setSubs]     = useState({ produtividade: 'dashboard', crm: 'empresa' });
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('crm_unlocked') === 'true');
   const [empresaAtiva, setEmpresaAtiva] = useState(null);
 
@@ -1180,13 +1175,15 @@ export default function App() {
                 <div className={`side-sublist ${expandida ? 'open' : ''}`}>
                   <div className="side-sublist-inner">
                     {subList.map(s => (
-                      <button
-                        key={s.key}
-                        onClick={() => clickSub(key, s.key)}
-                        className={`side-subitem ${ativa && subs[key] === s.key ? 'active' : ''}`}
-                      >
-                        {s.label}
-                      </button>
+                      <Fragment key={s.key}>
+                        {s.grupo && <p className="side-subgroup-title">{s.grupo}</p>}
+                        <button
+                          onClick={() => clickSub(key, s.key)}
+                          className={`side-subitem ${ativa && subs[key] === s.key ? 'active' : ''}`}
+                        >
+                          {s.label}
+                        </button>
+                      </Fragment>
                     ))}
                   </div>
                 </div>
@@ -1228,7 +1225,7 @@ export default function App() {
             {aba === 'crm' && subAtiva === 'agenda'   && !precisaEmpresa && <Agenda empresaAtiva={empresaAtiva} />}
             {aba === 'crm' && subAtiva === 'carteira' && !precisaEmpresa && <Carteira empresaAtiva={empresaAtiva} />}
 
-            {aba === 'prospeccao' && <ProspeccaoModule sub={subAtiva} />}
+            {aba === 'crm' && subAtiva?.startsWith('prosp_') && <ProspeccaoModule sub={subAtiva.slice(6)} />}
 
             {precisaEmpresa && (
               <div className="card py-14 text-center">
