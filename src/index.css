@@ -547,18 +547,32 @@ select.input-field option { background: #fff; color: var(--text); }
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 14px 10px;
+  padding: 15px 10px;
   border-radius: 14px;
-  border: 2px solid var(--c);
-  background: var(--bg);
-  color: var(--c);
+  border: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 82%, #fff) 0%, var(--c) 100%);
+  color: #fff;
   font-size: 12.5px;
   font-weight: 800;
   font-family: 'Inter', sans-serif;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: all 0.12s ease;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--c) 38%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
 }
-.prosp-status-btn:hover { background: var(--c); color: #fff; transform: translateY(-1px); }
+.prosp-status-btn:hover {
+  transform: translateY(-2px);
+  filter: saturate(1.12) brightness(1.04);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--c) 45%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.prosp-status-btn:active {
+  transform: translateY(0) scale(0.985);
+  filter: brightness(0.94);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--c) 35%, transparent);
+}
+.prosp-status-btn svg { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18)); }
 
 /* Gráfico de barras — ligações por dia */
 .prosp-chart-card {

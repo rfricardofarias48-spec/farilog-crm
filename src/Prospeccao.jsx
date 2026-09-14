@@ -748,19 +748,19 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 mt-5">
-          <button className="prosp-status-btn" style={{ '--c': '#059669', '--bg': '#ECFDF5' }} onClick={() => registrar('interessado')}>
+          <button className="prosp-status-btn" style={{ '--c': '#059669' }} onClick={() => registrar('interessado')}>
             <Check size={16} /> Atendeu — Interessado
           </button>
-          <button className="prosp-status-btn" style={{ '--c': '#DC2626', '--bg': '#FEF2F2' }} onClick={() => registrar('sem_interesse')}>
+          <button className="prosp-status-btn" style={{ '--c': '#DC2626' }} onClick={() => registrar('sem_interesse')}>
             <X size={16} /> Atendeu — Sem interesse
           </button>
-          <button className="prosp-status-btn" style={{ '--c': '#D97706', '--bg': '#FFFBEB' }} onClick={() => registrar('nao_atendeu')}>
+          <button className="prosp-status-btn" style={{ '--c': '#D97706' }} onClick={() => registrar('nao_atendeu')}>
             <Phone size={16} /> Não atendeu
           </button>
-          <button className="prosp-status-btn" style={{ '--c': '#7C3AED', '--bg': '#F5F3FF' }} onClick={() => registrar('retornar')}>
+          <button className="prosp-status-btn" style={{ '--c': '#7C3AED' }} onClick={() => registrar('retornar')}>
             <CalendarClock size={16} /> Retornar em
           </button>
-          <button className="prosp-status-btn" style={{ '--c': '#0891B2', '--bg': '#ECFEFF' }} onClick={() => setReuniaoAberta(true)}>
+          <button className="prosp-status-btn" style={{ '--c': '#0891B2' }} onClick={() => setReuniaoAberta(true)}>
             <CalendarDays size={16} /> Agendar Reunião
           </button>
         </div>
