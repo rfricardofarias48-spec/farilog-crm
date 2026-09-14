@@ -85,34 +85,47 @@ function DonutStatus({ prospectas }) {
     value: prospectas.filter(p => p.status === k).length,
   }));
   const total = prospectas.length;
-  const R = 42, CIRC = 2 * Math.PI * R;
+  const R = 40, CIRC = 2 * Math.PI * R;
   let acc = 0;
   return (
-    <div className="flex items-center gap-5 flex-wrap" style={{ flex: 1, minHeight: 0 }}>
-      <svg viewBox="0 0 120 120" style={{ width: 168, height: 168, flexShrink: 0 }}>
-        <circle cx="60" cy="60" r={R} fill="none" stroke="#EEF2F7" strokeWidth="15" />
-        {total > 0 && segs.filter(s => s.value > 0).map(s => {
-          const frac = s.value / total;
-          const dash = Math.max(0.5, frac * CIRC - 2);
-          const el = (
-            <circle key={s.key} cx="60" cy="60" r={R} fill="none" stroke={s.color} strokeWidth="15"
-              strokeDasharray={`${dash} ${CIRC - dash}`}
-              strokeDashoffset={-acc * CIRC} transform="rotate(-90 60 60)" strokeLinecap="round" />
+    <div className="prosp-donut-wrap">
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <svg viewBox="0 0 120 120" style={{ width: 190, height: 190, display: 'block' }}>
+          <circle cx="60" cy="60" r={R} fill="none" stroke="#EEF2F7" strokeWidth="20" />
+          {total > 0 && segs.filter(s => s.value > 0).map(s => {
+            const frac = s.value / total;
+            const dash = Math.max(0.5, frac * CIRC - 2.5);
+            const el = (
+              <circle key={s.key} cx="60" cy="60" r={R} fill="none" stroke={s.color} strokeWidth="20"
+                strokeDasharray={`${dash} ${CIRC - dash}`}
+                strokeDashoffset={-acc * CIRC} transform="rotate(-90 60 60)" />
+            );
+            acc += frac;
+            return el;
+          })}
+        </svg>
+        <div className="prosp-donut-center">
+          <p className="prosp-donut-total">{total}</p>
+          <p className="prosp-donut-label">LEADS</p>
+        </div>
+      </div>
+      <div className="prosp-donut-legenda">
+        {segs.map(s => {
+          const pct = total ? Math.round((s.value / total) * 100) : 0;
+          return (
+            <div key={s.key} className="prosp-leg-row">
+              <div className="prosp-leg-top">
+                <span className="prosp-leg-dot" style={{ background: s.color }} />
+                <span className="font-semibold" style={{ color: 'var(--text)' }}>{s.label}</span>
+                <span className="ml-auto font-bold" style={{ color: s.value > 0 ? s.color : 'var(--faint)' }}>{s.value}</span>
+                <span style={{ color: 'var(--faint)', fontSize: 11, width: 36, textAlign: 'right' }}>{pct}%</span>
+              </div>
+              <div className="prosp-leg-track">
+                <div className="prosp-leg-fill" style={{ width: `${pct}%`, background: s.color }} />
+              </div>
+            </div>
           );
-          acc += frac;
-          return el;
         })}
-        <text x="60" y="57" textAnchor="middle" fontSize="21" fontWeight="800" fill="#101B2F">{total}</text>
-        <text x="60" y="73" textAnchor="middle" fontSize="8.5" fontWeight="600" fill="#5C6B84" letterSpacing="0.1em">LEADS</text>
-      </svg>
-      <div className="space-y-2 flex-1" style={{ minWidth: 150 }}>
-        {segs.map(s => (
-          <div key={s.key} className="flex items-center gap-2 text-xs">
-            <span style={{ width: 9, height: 9, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-            <span className="font-semibold" style={{ color: 'var(--text)' }}>{s.label}</span>
-            <span className="ml-auto font-bold" style={{ color: s.value > 0 ? 'var(--muted)' : 'var(--faint)' }}>{s.value}</span>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -154,7 +167,7 @@ function ProspDashboard({ prospectas }) {
         <Card icon={CalendarClock}   label="A contatar"        value={porStatus('novo')} sub="nunca ligados" tone="#64748B" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3" style={{ flex: 1, minHeight: 0 }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3" style={{ flex: 1, minHeight: 0, maxHeight: 430 }}>
         <div className="card prosp-chart-card">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>Ligações — últimos 14 dias</p>
