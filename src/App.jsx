@@ -341,7 +341,7 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete, empresaAt
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
   const isEdit = Boolean(initial);
-  const qtyLabel = form.tipo === 'carreta' ? 'Descargas/Semana' : 'Vagas';
+  const qtyLabel = form.tipo === 'carreta' ? 'Descargas/Semana' : 'Funcionários';
   const isReuniao = form.etapa === 'reuniao';
 
   const handleSubmit = async (e) => {
@@ -499,7 +499,7 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
       )}
       {lead.quantidade > 0 && (
         <p className="text-xs font-bold mt-1.5" style={{ color: C.signalDeep }}>
-          {lead.quantidade} {lead.tipo === 'carreta' ? 'descargas/semana' : 'vagas'}
+          {lead.quantidade} {lead.tipo === 'carreta' ? 'descargas/semana' : 'funcionários'}
         </p>
       )}
     </div>
@@ -1225,7 +1225,7 @@ export default function App() {
             {aba === 'crm' && subAtiva === 'agenda'   && !precisaEmpresa && <Agenda empresaAtiva={empresaAtiva} />}
             {aba === 'crm' && subAtiva === 'carteira' && !precisaEmpresa && <Carteira empresaAtiva={empresaAtiva} />}
 
-            {aba === 'crm' && subAtiva?.startsWith('prosp_') && <ProspeccaoModule sub={subAtiva.slice(6)} />}
+            {aba === 'crm' && subAtiva?.startsWith('prosp_') && <ProspeccaoModule sub={subAtiva.slice(6)} empresaAtiva={empresaAtiva} />}
 
             {precisaEmpresa && (
               <div className="card py-14 text-center">

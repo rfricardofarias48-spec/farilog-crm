@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   fetchCrmProspectas, createCrmProspectasBulk, updateCrmProspecta, deleteCrmProspecta,
+  createCrmLead,
 } from './lib/db';
 import { parseHurmaCsv, readCsvFile, dedupKey, phoneDigits } from './lib/hurmaCsv';
 import {
   PhoneCall, Upload as UploadIcon, FileSpreadsheet, Search, X, Trash2,
   CalendarClock, Check, ChevronRight, Phone, MapPin, Building2, PartyPopper,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 const TODAY_ISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -29,6 +31,25 @@ function fmtDDMM(iso) {
 function isoAddDays(iso, n) {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+// Lead que atendeu e demonstrou interesse vira um lead no Pipeline (CRM)
+async function moverParaPipeline(lead, empresaAtiva) {
+  const obs = [`Origem: Prospecção${lead.lista ? ` (${lead.lista})` : ''}`];
+  if (lead.nicho) obs.push(`Nicho: ${lead.nicho}`);
+  if (lead.obs)   obs.push(lead.obs);
+  return createCrmLead({
+    nomeEmpresa:   lead.empresa,
+    contato:       '',
+    telefone:      lead.telefone,
+    cidade:        lead.cidade,
+    quantidade:    0,
+    etapa:         'novo',
+    tipo:          'diaria',
+    ultimoContato: TODAY_ISO,
+    observacoes:   obs.join(' · '),
+    empresa:       empresaAtiva || 'Farilog',
+  });
 }
 
 // ── Gráficos do dashboard (SVG/CSS puros, sem dependências) ────────────────
@@ -284,28 +305,38 @@ function LeadEditModal({ lead, onClose, onSave, onDelete }) {
   );
 }
 
-// ── Leads (lista completa com filtros) ───────────────────────────────────────
-function ProspLeads({ prospectas, setProspectas }) {
+// ── Leads (lista de contatos feitos, filtro único discreto) ─────────────────
+function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
   const [busca, setBusca]   = useState('');
   const [fCidade, setFCidade] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [fLista, setFLista]   = useState('');
+  const [somenteContatados, setSomenteContatados] = useState(true);
+  const [popAberto, setPopAberto] = useState(false);
   const [editando, setEditando] = useState(null);
 
   const cidades = useMemo(() => [...new Set(prospectas.map(p => p.cidade).filter(Boolean))].sort(), [prospectas]);
   const listas  = useMemo(() => [...new Set(prospectas.map(p => p.lista).filter(Boolean))].sort(), [prospectas]);
 
+  const nFiltros = (busca ? 1 : 0) + (fCidade ? 1 : 0) + (fStatus ? 1 : 0) + (fLista ? 1 : 0);
+  const limparFiltros = () => { setBusca(''); setFCidade(''); setFStatus(''); setFLista(''); };
+
   const filtrados = prospectas.filter(p =>
-    (!busca      || `${p.empresa} ${p.nicho} ${p.telefone}`.toLowerCase().includes(busca.toLowerCase())) &&
-    (!fCidade    || p.cidade === fCidade) &&
-    (!fStatus    || p.status === fStatus) &&
-    (!fLista     || p.lista === fLista)
+    (!somenteContatados || p.status !== 'novo') &&
+    (!busca   || `${p.empresa} ${p.nicho} ${p.telefone}`.toLowerCase().includes(busca.toLowerCase())) &&
+    (!fCidade || p.cidade === fCidade) &&
+    (!fStatus || p.status === fStatus) &&
+    (!fLista  || p.lista === fLista)
   );
 
   const handleSave = async (form) => {
+    const original = editando;
     setProspectas(prev => prev.map(p => p.id === form.id ? { ...p, ...form } : p));
     setEditando(null);
     await updateCrmProspecta(form.id, form);
+    if (form.status === 'interessado' && original && original.status !== 'interessado') {
+      await moverParaPipeline(form, empresaAtiva);
+    }
   };
   const handleDelete = async (id) => {
     setProspectas(prev => prev.filter(p => p.id !== id));
@@ -313,32 +344,53 @@ function ProspLeads({ prospectas, setProspectas }) {
     await deleteCrmProspecta(id);
   };
 
-  const sel = { className: 'input-field', style: { fontSize: 12, padding: '8px 10px', minWidth: 130 } };
+  const selStyle = { fontSize: 12, padding: '8px 10px' };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Leads</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{filtrados.length} de {prospectas.length} leads — clique para editar status e contato</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+            {filtrados.length} {somenteContatados ? 'contatos feitos' : 'leads'} — clique para editar status e contato
+          </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--faint)' }} />
-            <input className="input-field" style={{ fontSize: 12, padding: '8px 10px 8px 30px', width: 200 }} placeholder="Buscar empresa, nicho, telefone..." value={busca} onChange={e => setBusca(e.target.value)} />
-          </div>
-          <select {...sel} value={fCidade} onChange={e => setFCidade(e.target.value)}>
-            <option value="">Todas as cidades</option>
-            {cidades.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select {...sel} value={fStatus} onChange={e => setFStatus(e.target.value)}>
-            <option value="">Todos os status</option>
-            {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
-          <select {...sel} value={fLista} onChange={e => setFLista(e.target.value)}>
-            <option value="">Todas as listas</option>
-            {listas.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
+
+        <div style={{ position: 'relative' }}>
+          <button className="prosp-filter-btn" onClick={() => setPopAberto(v => !v)}>
+            <SlidersHorizontal size={13} /> Filtros
+            {nFiltros > 0 && <span className="prosp-filter-badge">{nFiltros}</span>}
+          </button>
+          {popAberto && (
+            <>
+              <div className="prosp-filter-backdrop" onClick={() => setPopAberto(false)} />
+              <div className="prosp-filter-pop">
+                <div style={{ position: 'relative' }}>
+                  <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--faint)' }} />
+                  <input className="input-field" style={{ ...selStyle, paddingLeft: 30 }} placeholder="Buscar empresa, nicho, telefone..." value={busca} onChange={e => setBusca(e.target.value)} />
+                </div>
+                <select className="input-field" style={selStyle} value={fCidade} onChange={e => setFCidade(e.target.value)}>
+                  <option value="">Todas as cidades</option>
+                  {cidades.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select className="input-field" style={selStyle} value={fStatus} onChange={e => setFStatus(e.target.value)}>
+                  <option value="">Todos os status</option>
+                  {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+                <select className="input-field" style={selStyle} value={fLista} onChange={e => setFLista(e.target.value)}>
+                  <option value="">Todas as listas</option>
+                  {listas.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <label className="prosp-filter-toggle">
+                  <input type="checkbox" checked={somenteContatados} onChange={e => setSomenteContatados(e.target.checked)} />
+                  Mostrar apenas já contatados
+                </label>
+                {nFiltros > 0 && (
+                  <button className="prosp-filter-clear" onClick={limparFiltros}>Limpar filtros</button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -346,7 +398,11 @@ function ProspLeads({ prospectas, setProspectas }) {
         <div className="card py-14 text-center">
           <Building2 size={22} className="mx-auto mb-2" style={{ color: '#C6CFDD' }} />
           <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            {prospectas.length === 0 ? 'Nenhum lead importado ainda — use a sub-aba "Upload de Listas".' : 'Nenhum lead com esses filtros.'}
+            {prospectas.length === 0
+              ? 'Nenhum lead importado ainda — use a sub-aba "Upload de Listas".'
+              : somenteContatados && !prospectas.some(p => p.status !== 'novo')
+                ? 'Nenhum contato feito ainda — comece em "Iniciar Prospecção".'
+                : 'Nenhum lead com esses filtros.'}
           </p>
         </div>
       ) : (
@@ -502,10 +558,11 @@ function ProspUpload({ prospectas, setProspectas }) {
 }
 
 // ── Iniciar Prospecção (um contato por vez) ──────────────────────────────────
-function ProspFluxo({ prospectas, setProspectas }) {
+function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
   const [cidade, setCidade]   = useState('');
   const [obs, setObs]         = useState('');
   const [retornoData, setRetornoData] = useState('');
+  const [aviso, setAviso]     = useState('');
 
   const cidades = useMemo(() => {
     const map = {};
@@ -535,6 +592,12 @@ function ProspFluxo({ prospectas, setProspectas }) {
     setProspectas(prev => prev.map(p => p.id === atual.id ? { ...p, ...patch } : p));
     setObs(''); setRetornoData('');
     await updateCrmProspecta(atual.id, patch);
+    if (status === 'interessado' && atual.status !== 'interessado') {
+      const criado = await moverParaPipeline({ ...atual, ...patch }, empresaAtiva);
+      setAviso(criado ? `"${atual.empresa}" foi enviado ao Pipeline (CRM)` : 'Lead marcado, mas falhou ao criar no Pipeline — confira a empresa ativa');
+    } else {
+      setAviso('');
+    }
   };
 
   if (!cidade) {
@@ -599,6 +662,14 @@ function ProspFluxo({ prospectas, setProspectas }) {
 
       <div className="prosp-bar" style={{ height: 8 }}><div className="prosp-bar-fill" style={{ width: `${totalCidade ? feitos / totalCidade * 100 : 0}%` }} /></div>
 
+      {aviso && (
+        <div className="card" style={{ padding: '11px 16px', background: '#ECFDF5', border: '1px solid #A7F3D0', boxShadow: 'none' }}>
+          <p className="text-xs font-bold" style={{ color: 'var(--ok)' }}>
+            <Check size={12} className="inline" style={{ verticalAlign: -2, marginRight: 5 }} />{aviso}
+          </p>
+        </div>
+      )}
+
       <div className="card prosp-fluxo-card">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -650,7 +721,7 @@ function ProspFluxo({ prospectas, setProspectas }) {
 }
 
 // ── Módulo principal ─────────────────────────────────────────────────────────
-export default function ProspeccaoModule({ sub = 'dashboard' }) {
+export default function ProspeccaoModule({ sub = 'dashboard', empresaAtiva = null }) {
   const [prospectas, setProspectas] = useState([]);
   const [loading, setLoading]       = useState(true);
 
@@ -663,9 +734,9 @@ export default function ProspeccaoModule({ sub = 'dashboard' }) {
   return (
     <>
       {sub === 'dashboard' && <ProspDashboard prospectas={prospectas} />}
-      {sub === 'leads'     && <ProspLeads prospectas={prospectas} setProspectas={setProspectas} />}
+      {sub === 'leads'     && <ProspLeads prospectas={prospectas} setProspectas={setProspectas} empresaAtiva={empresaAtiva} />}
       {sub === 'upload'    && <ProspUpload prospectas={prospectas} setProspectas={setProspectas} />}
-      {sub === 'fluxo'     && <ProspFluxo prospectas={prospectas} setProspectas={setProspectas} />}
+      {sub === 'fluxo'     && <ProspFluxo prospectas={prospectas} setProspectas={setProspectas} empresaAtiva={empresaAtiva} />}
     </>
   );
 }
