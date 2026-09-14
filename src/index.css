@@ -402,6 +402,9 @@ select.input-field option { background: #fff; color: var(--text); }
 /* Linhas alternadas (zebra): branco / gelo */
 .meta-row.alt { background: #F2F6FA; }
 .meta-row.alt:hover { background: #E9EFF6; }
+/* Tabela de Leads da Prospecção: linhas mais finas e títulos centralizados */
+.prosp-leads-thead > span { text-align: center; }
+.prosp-leads-row { padding: 9px 20px; }
 .meta-row.done {
   background: linear-gradient(90deg, rgba(20, 184, 122, 0.10), rgba(20, 184, 122, 0.03));
   box-shadow: inset 3px 0 0 var(--ok);

@@ -44,6 +44,17 @@ export const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
 export const phoneDigits = (s) => (s || '').replace(/\D/g, '').slice(0, 11);
 export const dedupKey = (empresa, telefone) => `${norm(empresa)}|${phoneDigits(telefone)}`;
 
+// Telefone válido = pelo menos um número com DDD (10-11 dígitos).
+// Aceita "(51) 3470-9000 (Gravataí)", múltiplos números separados por / , ; "e" (vale o primeiro), 0800.
+export const firstPhoneDigits = (s) => {
+  for (const part of (s || '').split(/[/,;]| e |\n/i)) {
+    const d = part.replace(/\D/g, '');
+    if (d.length >= 10 && d.length <= 11) return d;
+  }
+  return '';
+};
+export const isPhoneValid = (s) => firstPhoneDigits(s) !== '';
+
 export function parseHurmaCsv(text) {
   const firstLine = text.split('\n', 1)[0];
   const delim = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';

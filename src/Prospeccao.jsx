@@ -3,7 +3,7 @@ import {
   fetchCrmProspectas, createCrmProspectasBulk, updateCrmProspecta, deleteCrmProspecta,
   createCrmLead, updateCrmLead, createCrmEvento,
 } from './lib/db';
-import { parseHurmaCsv, readCsvFile, dedupKey, phoneDigits } from './lib/hurmaCsv';
+import { parseHurmaCsv, readCsvFile, phoneDigits, firstPhoneDigits } from './lib/hurmaCsv';
 import {
   PhoneCall, Upload as UploadIcon, FileSpreadsheet, Search, X, Trash2,
   CalendarClock, CalendarDays, Check, ChevronRight, Phone, MapPin, Building2, PartyPopper,
@@ -22,6 +22,13 @@ const STATUS = {
   reuniao:       { label: 'Reunião agendada', color: '#0891B2', bg: '#ECFEFF' },
 };
 const statusInfo = (s) => STATUS[s] || STATUS.novo;
+
+// Contatos na fila de prospecção: novos, "retornar em" vencido e "não atendeu" de dias
+// anteriores — quem não atendeu hoje volta automaticamente para a fila no dia seguinte
+const naFila = (p) =>
+  p.status === 'novo'
+  || (p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= TODAY_ISO))
+  || (p.status === 'nao_atendeu' && p.ultimoContato && p.ultimoContato < TODAY_ISO);
 
 function fmtDDMM(iso) {
   if (!iso) return '—';
@@ -372,14 +379,14 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
       ) : (
         <div className="card overflow-hidden scroll-x">
           <div style={{ minWidth: 860 }}>
-            <div className="meta-thead px-5 py-3 grid text-xs font-semibold" style={{ gridTemplateColumns: '1.6fr 110px 1fr 190px 90px 130px 110px', gap: '8px' }}>
+            <div className="meta-thead prosp-leads-thead px-5 py-3 grid text-xs font-semibold" style={{ gridTemplateColumns: '1.6fr 110px 1fr 190px 90px 130px 110px', gap: '8px' }}>
               <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span><span>Últ. contato</span><span>Status</span><span>Lista</span>
             </div>
             {filtrados.map((p, idx) => {
               const st = statusInfo(p.status);
               const venc = p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= TODAY_ISO);
               return (
-                <div key={p.id} className={`meta-row ${idx % 2 === 1 ? 'alt' : ''}`}
+                <div key={p.id} className={`meta-row prosp-leads-row ${idx % 2 === 1 ? 'alt' : ''}`}
                   style={{ gridTemplateColumns: '1.6fr 110px 1fr 190px 90px 130px 110px', gap: '8px', borderBottom: idx < filtrados.length - 1 ? '1px solid var(--line)' : 'none' }}
                   onClick={() => setEditando(p)}>
                   <span className="font-semibold truncate" style={{ color: 'var(--text)' }}>{p.empresa}</span>
@@ -425,19 +432,25 @@ function ProspUpload({ prospectas, setProspectas }) {
     try {
       const text = await readCsvFile(file);
       const { records, dupBatch, skipped } = parseHurmaCsv(text);
-      const keysExistentes = new Set(prospectas.map(p => dedupKey(p.empresa, p.telefone)));
+      // Análise de todos os contatos: número inválido, repetido no arquivo ou já passado pelo sistema
+      const digitosNoApp = new Set(prospectas.map(p => firstPhoneDigits(p.telefone)).filter(Boolean));
+      const vistosNoArquivo = new Set();
       const novos = [];
-      let dupDb = 0;
+      const invalidos = [];
+      let dupDb = 0, dupFile = 0;
       for (const r of records) {
-        if (keysExistentes.has(dedupKey(r.empresa, r.telefone))) { dupDb++; continue; }
-        keysExistentes.add(dedupKey(r.empresa, r.telefone));
+        const d = firstPhoneDigits(r.telefone);
+        if (!d) { invalidos.push(r); continue; }                 // sem número discável
+        if (digitosNoApp.has(d)) { dupDb++; continue; }           // já passou pelo sistema
+        if (vistosNoArquivo.has(d)) { dupFile++; continue; }      // repetido dentro do arquivo
+        vistosNoArquivo.add(d);
         novos.push(r);
       }
       if (novos.length === 0 && records.length === 0) {
         setErro('Nenhuma linha de dados encontrada. O arquivo precisa estar no formato da lista padrão (Empresa, Cidade, Nicho, Telefone, OBS, Contato em).');
         return;
       }
-      setPreview({ records: novos, dupBatch, dupDb, skipped });
+      setPreview({ records: novos, dupBatch: dupBatch + dupFile, dupDb, skipped, invalidos });
     } catch (e) {
       setErro(`Não foi possível ler o arquivo: ${e.message}`);
     }
@@ -475,15 +488,28 @@ function ProspUpload({ prospectas, setProspectas }) {
 
         {preview && (
           <div className="mt-5 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div className="prosp-stat" style={{ borderColor: 'var(--signal)' }}>
                 <p className="prosp-stat-num" style={{ color: 'var(--signalDeep)' }}>{preview.records.length}</p>
                 <p className="prosp-stat-label">novos para importar</p>
               </div>
               <div className="prosp-stat"><p className="prosp-stat-num" style={{ color: '#D97706' }}>{preview.dupBatch}</p><p className="prosp-stat-label">repetidos no arquivo</p></div>
-              <div className="prosp-stat"><p className="prosp-stat-num" style={{ color: '#7C3AED' }}>{preview.dupDb}</p><p className="prosp-stat-label">já estavam no app</p></div>
+              <div className="prosp-stat"><p className="prosp-stat-num" style={{ color: '#7C3AED' }}>{preview.dupDb}</p><p className="prosp-stat-label">já passaram pelo sistema</p></div>
+              <div className="prosp-stat"><p className="prosp-stat-num" style={{ color: '#DC2626' }}>{preview.invalidos.length}</p><p className="prosp-stat-label">números inválidos</p></div>
               <div className="prosp-stat"><p className="prosp-stat-num" style={{ color: 'var(--faint)' }}>{preview.skipped}</p><p className="prosp-stat-label">linhas ignoradas</p></div>
             </div>
+
+            {preview.invalidos.length > 0 && (
+              <div className="card" style={{ background: '#FEF2F2', border: '1px solid #FECACA', boxShadow: 'none', padding: '10px 14px' }}>
+                <p className="text-xs font-bold mb-1" style={{ color: '#DC2626' }}>
+                  {preview.invalidos.length} contato(s) sem número discável (foram descartados):
+                </p>
+                <p className="text-xs" style={{ color: '#B91C1C' }}>
+                  {preview.invalidos.slice(0, 6).map(r => r.empresa).join(' · ')}
+                  {preview.invalidos.length > 6 && ` · +${preview.invalidos.length - 6} outros`}
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Nome da lista *</label>
@@ -590,7 +616,7 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
       const c = p.cidade || 'Sem cidade';
       map[c] ||= { total: 0, fila: 0 };
       map[c].total++;
-      if (p.status === 'novo' || (p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= TODAY_ISO))) map[c].fila++;
+      if (naFila(p)) map[c].fila++;
     }
     return Object.entries(map).sort((a, b) => b[1].fila - a[1].fila);
   }, [prospectas]);
@@ -599,7 +625,7 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
     if (!cidade) return [];
     return prospectas
       .filter(p => (p.cidade || 'Sem cidade') === cidade)
-      .filter(p => p.status === 'novo' || (p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= TODAY_ISO)));
+      .filter(naFila);
   }, [cidade, prospectas]);
 
   const totalCidade = prospectas.filter(p => (p.cidade || 'Sem cidade') === cidade).length;
@@ -694,7 +720,7 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
         <div className="card py-16 text-center">
           <PartyPopper size={30} className="mx-auto mb-3" style={{ color: 'var(--ok)' }} />
           <p className="text-base font-bold" style={{ color: 'var(--text)' }}>Fila de {cidade} zerada!</p>
-          <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>{totalCidade} leads atendidos ou sem pendência de retorno.</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>{totalCidade} leads sem pendência hoje — quem não atendeu volta automaticamente amanhã.</p>
         </div>
       </div>
     );
@@ -731,6 +757,7 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
               {atual.nicho && <span className="prosp-pill" style={{ background: '#EFF6FF', color: 'var(--signalDeep)' }}>{atual.nicho}</span>}
               {atual.cidade && <span className="text-xs" style={{ color: 'var(--muted)' }}><MapPin size={11} className="inline" /> {atual.cidade}</span>}
               {atual.retornoEm && atual.status === 'retornar' && <span className="text-xs font-bold" style={{ color: '#7C3AED' }}>retorno agendado {fmtDDMM(atual.retornoEm)}</span>}
+              {atual.status === 'nao_atendeu' && atual.ultimoContato && <span className="text-xs font-bold" style={{ color: '#D97706' }}>não atendeu {fmtDDMM(atual.ultimoContato)} — nova tentativa</span>}
             </div>
           </div>
           {atual.telefone && (
