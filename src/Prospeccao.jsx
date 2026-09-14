@@ -26,6 +26,77 @@ function fmtDDMM(iso) {
   return `${d}/${m}`;
 }
 
+function isoAddDays(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+// ── Gráficos do dashboard (SVG/CSS puros, sem dependências) ────────────────
+function BarChartLigacoes({ prospectas }) {
+  const days = useMemo(() => {
+    const counts = {};
+    for (const p of prospectas) if (p.ultimoContato) counts[p.ultimoContato] = (counts[p.ultimoContato] || 0) + 1;
+    return Array.from({ length: 14 }, (_, i) => {
+      const iso = isoAddDays(TODAY_ISO, i - 13);
+      return { iso, count: counts[iso] || 0 };
+    });
+  }, [prospectas]);
+  const max = Math.max(1, ...days.map(d => d.count));
+  return (
+    <div className="prosp-bars">
+      {days.map(d => (
+        <div key={d.iso} className="prosp-bar-col" title={`${fmtDDMM(d.iso)} — ${d.count} ligação(ões)`}>
+          <div className="prosp-bar-track">
+            <div className="prosp-bar-fill" style={{ height: `${(d.count / max) * 100}%` }}>
+              {d.count > 0 && <span className="prosp-bar-num">{d.count}</span>}
+            </div>
+          </div>
+          <p className="prosp-bar-label">{Number(d.iso.slice(8))}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DonutStatus({ prospectas }) {
+  const segs = Object.entries(STATUS).map(([k, v]) => ({
+    key: k, label: v.label, color: v.color,
+    value: prospectas.filter(p => p.status === k).length,
+  }));
+  const total = prospectas.length;
+  const R = 42, CIRC = 2 * Math.PI * R;
+  let acc = 0;
+  return (
+    <div className="flex items-center gap-5 flex-wrap">
+      <svg viewBox="0 0 120 120" style={{ width: 148, height: 148, flexShrink: 0 }}>
+        <circle cx="60" cy="60" r={R} fill="none" stroke="#EEF2F7" strokeWidth="15" />
+        {total > 0 && segs.filter(s => s.value > 0).map(s => {
+          const frac = s.value / total;
+          const dash = Math.max(0.5, frac * CIRC - 2);
+          const el = (
+            <circle key={s.key} cx="60" cy="60" r={R} fill="none" stroke={s.color} strokeWidth="15"
+              strokeDasharray={`${dash} ${CIRC - dash}`}
+              strokeDashoffset={-acc * CIRC} transform="rotate(-90 60 60)" strokeLinecap="round" />
+          );
+          acc += frac;
+          return el;
+        })}
+        <text x="60" y="57" textAnchor="middle" fontSize="21" fontWeight="800" fill="#101B2F">{total}</text>
+        <text x="60" y="73" textAnchor="middle" fontSize="8.5" fontWeight="600" fill="#5C6B84" letterSpacing="0.1em">LEADS</text>
+      </svg>
+      <div className="space-y-2 flex-1" style={{ minWidth: 150 }}>
+        {segs.map(s => (
+          <div key={s.key} className="flex items-center gap-2 text-xs">
+            <span style={{ width: 9, height: 9, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+            <span className="font-semibold" style={{ color: 'var(--text)' }}>{s.label}</span>
+            <span className="ml-auto font-bold" style={{ color: s.value > 0 ? 'var(--muted)' : 'var(--faint)' }}>{s.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Dashboard ────────────────────────────────────────────────────────────────
 function Card({ icon: Icon, label, value, sub, tone = 'var(--signal)' }) {
   return (
@@ -62,6 +133,22 @@ function ProspDashboard({ prospectas }) {
         <Card icon={X}               label="Sem interesse"     value={porStatus('sem_interesse')} sub="descartados" tone="#DC2626" />
         <Card icon={Phone}           label="Não atendeu"       value={porStatus('nao_atendeu')} sub="tentar de novo depois" tone="#D97706" />
         <Card icon={CalendarClock}   label="A contatar"        value={porStatus('novo')} sub="nunca ligados" tone="#64748B" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="card" style={{ padding: '18px 20px' }}>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>Ligações — últimos 14 dias</p>
+            <span className="text-xs font-semibold" style={{ color: 'var(--faint)' }}>
+              {prospectas.filter(p => p.ultimoContato >= isoAddDays(TODAY_ISO, -13)).length} no período
+            </span>
+          </div>
+          <BarChartLigacoes prospectas={prospectas} />
+        </div>
+        <div className="card" style={{ padding: '18px 20px' }}>
+          <p className="text-sm font-bold mb-4" style={{ color: 'var(--text)' }}>Distribuição por status</p>
+          <DonutStatus prospectas={prospectas} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
