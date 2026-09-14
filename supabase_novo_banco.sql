@@ -87,6 +87,22 @@ CREATE TABLE IF NOT EXISTS crm_metas (
   criado_em TIMESTAMPTZ DEFAULT now()
 );
 
+-- Leads de prospecção (aba Prospecção): importados das listas CSV no formato Hurma
+CREATE TABLE IF NOT EXISTS crm_prospectas (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  empresa TEXT NOT NULL,
+  cidade TEXT,
+  nicho TEXT,
+  telefone TEXT,
+  obs TEXT,
+  contato_em TEXT,
+  lista TEXT,
+  status TEXT NOT NULL DEFAULT 'novo',
+  ultimo_contato DATE,
+  retorno_em DATE,
+  criado_em TIMESTAMPTZ DEFAULT now()
+);
+
 -- ── 2. SEGURANÇA (RLS) — mesmo padrão aberto usado pelo app ────────────────
 
 ALTER TABLE crm_empresas ENABLE ROW LEVEL SECURITY;
@@ -96,6 +112,7 @@ ALTER TABLE crm_clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE crm_tarefas  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE crm_diarios  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE crm_metas    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE crm_prospectas ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow anon select crm_empresas" ON crm_empresas;
 CREATE POLICY "Allow anon select crm_empresas" ON crm_empresas FOR SELECT USING (true);
@@ -159,6 +176,15 @@ DROP POLICY IF EXISTS "Allow anon update crm_metas" ON crm_metas;
 CREATE POLICY "Allow anon update crm_metas" ON crm_metas FOR UPDATE USING (true);
 DROP POLICY IF EXISTS "Allow anon delete crm_metas" ON crm_metas;
 CREATE POLICY "Allow anon delete crm_metas" ON crm_metas FOR DELETE USING (true);
+
+DROP POLICY IF EXISTS "Allow anon select crm_prospectas" ON crm_prospectas;
+CREATE POLICY "Allow anon select crm_prospectas" ON crm_prospectas FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow anon insert crm_prospectas" ON crm_prospectas;
+CREATE POLICY "Allow anon insert crm_prospectas" ON crm_prospectas FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow anon update crm_prospectas" ON crm_prospectas;
+CREATE POLICY "Allow anon update crm_prospectas" ON crm_prospectas FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow anon delete crm_prospectas" ON crm_prospectas;
+CREATE POLICY "Allow anon delete crm_prospectas" ON crm_prospectas FOR DELETE USING (true);
 
 -- ── 3. ÍNDICES ──────────────────────────────────────────────────────────────
 

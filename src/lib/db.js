@@ -372,3 +372,72 @@ export async function deleteCrmMeta(id) {
   if (error) { console.error('[db] deleteCrmMeta:', error.message); return false; }
   return true;
 }
+
+// ── Prospecção (leads das listas) ───────────────────────────────────────────
+
+function mapCrmProspecta(r) {
+  return {
+    id:            r.id,
+    empresa:       r.empresa,
+    cidade:        r.cidade || '',
+    nicho:         r.nicho || '',
+    telefone:      r.telefone || '',
+    obs:           r.obs || '',
+    contatoEm:     r.contato_em || '',
+    lista:         r.lista || '',
+    status:        r.status || 'novo',
+    ultimoContato: r.ultimo_contato || '',
+    retornoEm:     r.retorno_em || '',
+    criadoEm:      r.criado_em,
+  };
+}
+
+export async function fetchCrmProspectas() {
+  const { data, error } = await supabase
+    .from('crm_prospectas')
+    .select('*')
+    .order('empresa', { ascending: true });
+  if (error) { console.error('[db] fetchCrmProspectas:', error.message); return []; }
+  return data.map(mapCrmProspecta);
+}
+
+// Insere em lotes de 200 para não estourar o limite de requisição
+export async function createCrmProspectasBulk(items) {
+  const rows = items.map(i => ({
+    empresa:    i.empresa,
+    cidade:     i.cidade     || null,
+    nicho:      i.nicho      || null,
+    telefone:   i.telefone   || null,
+    obs:        i.obs        || null,
+    contato_em: i.contatoEm  || null,
+    lista:      i.lista      || null,
+  }));
+  for (let i = 0; i < rows.length; i += 200) {
+    const { error } = await supabase.from('crm_prospectas').insert(rows.slice(i, i + 200));
+    if (error) { console.error('[db] createCrmProspectasBulk:', error.message); return false; }
+  }
+  return true;
+}
+
+export async function updateCrmProspecta(id, patch) {
+  const p = {};
+  if (patch.empresa       !== undefined) p.empresa        = patch.empresa;
+  if (patch.cidade        !== undefined) p.cidade         = patch.cidade;
+  if (patch.nicho         !== undefined) p.nicho          = patch.nicho;
+  if (patch.telefone      !== undefined) p.telefone       = patch.telefone;
+  if (patch.obs           !== undefined) p.obs            = patch.obs;
+  if (patch.contatoEm     !== undefined) p.contato_em     = patch.contatoEm;
+  if (patch.lista         !== undefined) p.lista          = patch.lista;
+  if (patch.status        !== undefined) p.status         = patch.status;
+  if (patch.ultimoContato !== undefined) p.ultimo_contato = patch.ultimoContato || null;
+  if (patch.retornoEm     !== undefined) p.retorno_em     = patch.retornoEm || null;
+  const { error } = await supabase.from('crm_prospectas').update(p).eq('id', id);
+  if (error) { console.error('[db] updateCrmProspecta:', error.message); return false; }
+  return true;
+}
+
+export async function deleteCrmProspecta(id) {
+  const { error } = await supabase.from('crm_prospectas').delete().eq('id', id);
+  if (error) { console.error('[db] deleteCrmProspecta:', error.message); return false; }
+  return true;
+}

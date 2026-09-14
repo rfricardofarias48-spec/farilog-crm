@@ -7,9 +7,10 @@ import {
 } from './lib/db';
 import TarefasModule from './Tarefas';
 import MetasModule from './Metas';
+import ProspeccaoModule from './Prospeccao';
 import {
   Plus, X, Trash2, ChevronLeft, ChevronRight,
-  CalendarDays, Lock, LogOut, Users, MapPin, Zap,
+  CalendarDays, Lock, LogOut, Users, MapPin, Zap, PhoneCall,
   Building2, Pencil, Truck,
 } from 'lucide-react';
 
@@ -1119,12 +1120,21 @@ const NAV = [
       { key: 'carteira', label: 'Carteira de Clientes' },
     ],
   },
+  {
+    key: 'prospeccao', label: 'Prospecção', icon: PhoneCall,
+    subs: [
+      { key: 'dashboard', label: 'Dashboard' },
+      { key: 'leads',     label: 'Leads' },
+      { key: 'upload',    label: 'Upload de Listas' },
+      { key: 'fluxo',     label: 'Iniciar Prospecção' },
+    ],
+  },
 ];
 
 export default function App() {
   const [aba, setAba]       = useState('produtividade');
   const [aberta, setAberta] = useState(true);
-  const [subs, setSubs]     = useState({ produtividade: 'dashboard', crm: 'empresa' });
+  const [subs, setSubs]     = useState({ produtividade: 'dashboard', crm: 'empresa', prospeccao: 'dashboard' });
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('crm_unlocked') === 'true');
   const [empresaAtiva, setEmpresaAtiva] = useState(null);
 
@@ -1217,6 +1227,8 @@ export default function App() {
             {aba === 'crm' && subAtiva === 'pipeline' && !precisaEmpresa && <Pipeline empresaAtiva={empresaAtiva} />}
             {aba === 'crm' && subAtiva === 'agenda'   && !precisaEmpresa && <Agenda empresaAtiva={empresaAtiva} />}
             {aba === 'crm' && subAtiva === 'carteira' && !precisaEmpresa && <Carteira empresaAtiva={empresaAtiva} />}
+
+            {aba === 'prospeccao' && <ProspeccaoModule sub={subAtiva} />}
 
             {precisaEmpresa && (
               <div className="card py-14 text-center">
