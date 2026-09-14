@@ -88,8 +88,8 @@ function DonutStatus({ prospectas }) {
   const R = 42, CIRC = 2 * Math.PI * R;
   let acc = 0;
   return (
-    <div className="flex items-center gap-5 flex-wrap">
-      <svg viewBox="0 0 120 120" style={{ width: 148, height: 148, flexShrink: 0 }}>
+    <div className="flex items-center gap-5 flex-wrap" style={{ flex: 1, minHeight: 0 }}>
+      <svg viewBox="0 0 120 120" style={{ width: 168, height: 168, flexShrink: 0 }}>
         <circle cx="60" cy="60" r={R} fill="none" stroke="#EEF2F7" strokeWidth="15" />
         {total > 0 && segs.filter(s => s.value > 0).map(s => {
           const frac = s.value / total;
@@ -136,12 +136,10 @@ function ProspDashboard({ prospectas }) {
   const hoje = TODAY_ISO;
   const contatadasHoje = prospectas.filter(p => p.ultimoContato === hoje);
   const porStatus = (s) => prospectas.filter(p => p.status === s).length;
-  const retornarVencidos = prospectas.filter(p => p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= hoje));
-  const retornarFuturos  = prospectas.filter(p => p.status === 'retornar' && p.retornoEm > hoje);
   const atendentes = contatadasHoje.filter(p => p.status === 'interessado' || p.status === 'sem_interesse' || p.status === 'retornar').length;
 
   return (
-    <div className="space-y-4">
+    <div className="page-fill space-y-4">
       <div>
         <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Dashboard de Prospecção</h2>
         <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Resumo das ligações e do funil de contatos</p>
@@ -156,8 +154,8 @@ function ProspDashboard({ prospectas }) {
         <Card icon={CalendarClock}   label="A contatar"        value={porStatus('novo')} sub="nunca ligados" tone="#64748B" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="card" style={{ padding: '18px 20px' }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3" style={{ flex: 1, minHeight: 0 }}>
+        <div className="card prosp-chart-card">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>Ligações — últimos 14 dias</p>
             <span className="text-xs font-semibold" style={{ color: 'var(--faint)' }}>
@@ -166,59 +164,9 @@ function ProspDashboard({ prospectas }) {
           </div>
           <BarChartLigacoes prospectas={prospectas} />
         </div>
-        <div className="card" style={{ padding: '18px 20px' }}>
+        <div className="card prosp-chart-card">
           <p className="text-sm font-bold mb-4" style={{ color: 'var(--text)' }}>Distribuição por status</p>
           <DonutStatus prospectas={prospectas} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="card" style={{ padding: '16px 18px' }}>
-          <div className="flex items-center gap-2 mb-3">
-            <CalendarClock size={14} style={{ color: '#7C3AED' }} />
-            <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>Retornar em — {retornarVencidos.length + retornarFuturos.length} agendados</p>
-          </div>
-          {retornarVencidos.length > 0 && (
-            <p className="text-xs font-bold mb-2" style={{ color: '#DC2626' }}>
-              {retornarVencidos.length} vencido(s) — ligue hoje
-            </p>
-          )}
-          {retornarVencidos.length + retornarFuturos.length === 0 && (
-            <p className="text-xs" style={{ color: 'var(--faint)' }}>Nenhum retorno agendado.</p>
-          )}
-          <div className="space-y-1.5" style={{ maxHeight: 220, overflowY: 'auto' }}>
-            {[...retornarVencidos, ...retornarFuturos].slice(0, 30).map(p => (
-              <div key={p.id} className="flex items-center justify-between text-xs">
-                <span className="font-semibold truncate" style={{ color: 'var(--text)' }}>{p.empresa}</span>
-                <span className="font-bold flex-shrink-0 ml-2" style={{ color: (!p.retornoEm || p.retornoEm <= hoje) ? '#DC2626' : '#7C3AED' }}>
-                  {p.retornoEm ? fmtDDMM(p.retornoEm) : 'hoje'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '16px 18px' }}>
-          <div className="flex items-center gap-2 mb-3">
-            <MapPin size={14} style={{ color: 'var(--signal)' }} />
-            <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>Leads por cidade</p>
-          </div>
-          <div className="space-y-1.5" style={{ maxHeight: 260, overflowY: 'auto' }}>
-            {Object.entries(prospectas.reduce((acc, p) => {
-              const c = p.cidade || 'Sem cidade';
-              acc[c] ||= { total: 0, pendentes: 0 };
-              acc[c].total++;
-              if (p.status === 'novo' || (p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= hoje))) acc[c].pendentes++;
-              return acc;
-            }, {})).sort((a, b) => b[1].pendentes - a[1].pendentes).map(([cidade, v]) => (
-              <div key={cidade} className="flex items-center justify-between text-xs">
-                <span className="font-semibold" style={{ color: 'var(--text)' }}>{cidade}</span>
-                <span style={{ color: 'var(--muted)' }}>
-                  <b style={{ color: v.pendentes > 0 ? 'var(--signalDeep)' : 'var(--faint)' }}>{v.pendentes}</b> de {v.total} a contatar
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>
