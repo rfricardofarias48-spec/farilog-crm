@@ -385,6 +385,9 @@ select.input-field option { background: #fff; color: var(--text); }
   transition: background 0.15s ease;
 }
 .meta-row:hover { background: #F8FAFC; }
+/* Linhas alternadas (zebra): branco / gelo */
+.meta-row.alt { background: #F2F6FA; }
+.meta-row.alt:hover { background: #E9EFF6; }
 .meta-row.done {
   background: linear-gradient(90deg, rgba(20, 184, 122, 0.10), rgba(20, 184, 122, 0.03));
   box-shadow: inset 3px 0 0 var(--ok);

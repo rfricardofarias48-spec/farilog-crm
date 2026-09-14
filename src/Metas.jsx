@@ -256,7 +256,7 @@ export default function MetasModule() {
               return (
                 <div
                   key={m.id}
-                  className={`meta-row ${done ? 'done' : ''}`}
+                  className={`meta-row ${idx % 2 === 1 ? 'alt' : ''} ${done ? 'done' : ''}`}
                   style={{
                     gridTemplateColumns: '28px 1fr 130px 110px 64px', gap: '10px',
                     borderBottom: idx < metas.length - 1 ? '1px solid var(--line)' : 'none',
