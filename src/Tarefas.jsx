@@ -4,7 +4,7 @@ import {
   fetchCrmDiarios, saveCrmDiario,
 } from './lib/db';
 import {
-  Plus, Trash2, Check, ChartLine, ListTodo, History, CalendarCheck,
+  Plus, Trash2, Check, ListTodo, History, CalendarCheck,
   ClipboardList, Award, CalendarDays, Flame, Info,
 } from 'lucide-react';
 
@@ -512,9 +512,8 @@ function TasksHistory({ tarefas, diarios }) {
   );
 }
 
-// ── Módulo principal (sub-abas) ────────────────────────────────────────────
-export default function TarefasModule() {
-  const [sub, setSub] = useState('dashboard');
+// ── Módulo principal (sub-aba controlada pela sidebar) ─────────────────────
+export default function TarefasModule({ sub = 'dashboard' }) {
   const [tarefas, setTarefas] = useState([]);
   const [diarios, setDiarios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -563,25 +562,19 @@ export default function TarefasModule() {
 
   const hojeReg = diarios.find(d => d.data === TODAY_ISO);
 
-  const SUBS = [
-    { key: 'dashboard', label: 'Dashboard', icon: ChartLine },
-    { key: 'tarefas',   label: 'Tarefas',   icon: ListTodo },
-    { key: 'historico', label: 'Histórico', icon: History },
-  ];
+  const SUB_META = {
+    dashboard: { title: 'Dashboard',   desc: 'Visão geral da sua produtividade' },
+    tarefas:   { title: 'Tarefas',     desc: 'Sua lista do dia e o resumo diário' },
+    historico: { title: 'Histórico',   desc: 'Suas tarefas concluídas e notas por dia' },
+  };
+  const meta = SUB_META[sub] || SUB_META.dashboard;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Tarefas</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Sua produtividade diária e seu histórico de notas</p>
-        </div>
-        <div className="subtabs">
-          {SUBS.map(({ key, label, icon: Icon }) => (
-            <button key={key} className={`subtab ${sub === key ? 'active' : ''}`} onClick={() => setSub(key)}>
-              <Icon size={13} /> {label}
-            </button>
-          ))}
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{meta.title}</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{meta.desc}</p>
         </div>
       </div>
 

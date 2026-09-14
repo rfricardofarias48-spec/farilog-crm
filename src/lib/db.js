@@ -324,3 +324,51 @@ export async function deleteCrmCliente(id) {
   if (error) { console.error('[db] deleteCrmCliente:', error.message); return false; }
   return true;
 }
+
+// ── Metas (aba Metas) ───────────────────────────────────────────────────────
+
+function mapCrmMeta(r) {
+  return {
+    id:       r.id,
+    titulo:   r.titulo,
+    linhas:   Array.isArray(r.linhas) ? r.linhas : [],
+    ordem:    Number(r.ordem ?? 0),
+    criadoEm: r.criado_em,
+  };
+}
+
+export async function fetchCrmMetas() {
+  const { data, error } = await supabase
+    .from('crm_metas')
+    .select('*')
+    .order('ordem', { ascending: true })
+    .order('criado_em', { ascending: true });
+  if (error) { console.error('[db] fetchCrmMetas:', error.message); return []; }
+  return data.map(mapCrmMeta);
+}
+
+export async function createCrmMeta({ titulo, linhas, ordem }) {
+  const { data, error } = await supabase
+    .from('crm_metas')
+    .insert({ titulo, linhas: linhas ?? [], ordem: ordem ?? 0 })
+    .select()
+    .single();
+  if (error) { console.error('[db] createCrmMeta:', error.message); return null; }
+  return mapCrmMeta(data);
+}
+
+export async function updateCrmMeta(id, patch) {
+  const p = {};
+  if (patch.titulo !== undefined) p.titulo = patch.titulo;
+  if (patch.linhas !== undefined) p.linhas = patch.linhas;
+  if (patch.ordem  !== undefined) p.ordem  = patch.ordem;
+  const { error } = await supabase.from('crm_metas').update(p).eq('id', id);
+  if (error) { console.error('[db] updateCrmMeta:', error.message); return false; }
+  return true;
+}
+
+export async function deleteCrmMeta(id) {
+  const { error } = await supabase.from('crm_metas').delete().eq('id', id);
+  if (error) { console.error('[db] deleteCrmMeta:', error.message); return false; }
+  return true;
+}

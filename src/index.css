@@ -218,6 +218,78 @@ select.input-field option { background: #fff; color: var(--text); }
   background: var(--signal);
 }
 
+/* ── Sidebar: grupos com sub-abas em acordeão ────────────────────────────── */
+.side-group { display: flex; flex-direction: column; }
+.side-caret {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  color: #6B7C9C;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease;
+}
+.side-caret.open { transform: rotate(90deg); color: #93C5FD; }
+
+.side-sublist {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.side-sublist.open { grid-template-rows: 1fr; }
+.side-sublist-inner {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 4px 24px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.09);
+}
+.side-subitem {
+  text-align: left;
+  padding: 7px 11px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  color: #7D8FAD;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.side-subitem:hover { color: #E6EBF5; background: rgba(255, 255, 255, 0.05); }
+.side-subitem.active {
+  color: #fff;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.18);
+}
+/* Itens entram escalonados quando o acordeão abre */
+.side-sublist.open .side-subitem { animation: subIn 0.26s ease both; }
+.side-sublist.open .side-subitem:nth-child(1) { animation-delay: 0.05s; }
+.side-sublist.open .side-subitem:nth-child(2) { animation-delay: 0.10s; }
+.side-sublist.open .side-subitem:nth-child(3) { animation-delay: 0.15s; }
+.side-sublist.open .side-subitem:nth-child(4) { animation-delay: 0.20s; }
+@keyframes subIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Fade do conteúdo ao trocar de sub-aba */
+.content-fade {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  animation: contentIn 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+@keyframes contentIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Sub-abas (segmented control) ────────────────────────────────────────── */
 .subtabs {
   display: inline-flex;
@@ -288,6 +360,91 @@ select.input-field option { background: #fff; color: var(--text); }
   background: linear-gradient(135deg, #14B87A, var(--ok));
   border-color: var(--ok);
 }
+
+/* ── Metas ───────────────────────────────────────────────────────────────── */
+.modal-lg { max-width: 780px; }
+
+.meta-row {
+  display: grid;
+  align-items: center;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.meta-row:hover { background: #F8FAFC; }
+.meta-row.done {
+  background: linear-gradient(90deg, rgba(20, 184, 122, 0.10), rgba(20, 184, 122, 0.03));
+  box-shadow: inset 3px 0 0 var(--ok);
+}
+.meta-row.done:hover { background: linear-gradient(90deg, rgba(20, 184, 122, 0.16), rgba(20, 184, 122, 0.06)); }
+.meta-badge-done {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2.5px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: var(--ok);
+  color: #fff;
+  vertical-align: middle;
+}
+.meta-ordem-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+.meta-ordem-btn:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+.meta-ordem-btn:disabled { opacity: 0.35; cursor: default; }
+
+.meta-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  transition: background 0.15s ease;
+}
+.meta-linha-texto { flex: 1; min-width: 0; }
+.meta-linha-prazo { width: 140px; padding: 8px 10px; font-size: 12px; }
+.meta-linha-atingida-tag {
+  flex-shrink: 0;
+  width: 62px;
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.meta-add-linha {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px;
+  border-radius: 12px;
+  border: 1.5px dashed #C9D2E0;
+  background: transparent;
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+.meta-add-linha:hover { border-color: var(--signal); color: var(--signal); }
 
 /* ── Notas (pills de produtividade) ──────────────────────────────────────── */
 .nota-pill {
@@ -389,9 +546,22 @@ select.input-field option { background: #fff; color: var(--text); }
   }
   .sidebar .side-nav {
     flex-direction: row !important;
+    flex-wrap: wrap;
+    width: 100%;
     padding: 0 !important;
     gap: 4px;
   }
+  .side-group { display: contents; }
+  .side-sublist { width: 100%; }
+  .side-sublist-inner {
+    margin: 0;
+    padding-left: 0;
+    border-left: none;
+    flex-direction: row;
+    gap: 4px;
+  }
+  .side-subitem { width: auto; white-space: nowrap; }
+  .side-caret { margin-left: 4px; }
   .side-link { padding: 9px 12px; white-space: nowrap; width: auto; }
   .side-link.active::before { display: none; }
   .sidebar .side-footer { border: none !important; padding: 0 !important; margin-left: auto; }

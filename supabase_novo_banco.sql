@@ -78,6 +78,15 @@ CREATE TABLE IF NOT EXISTS crm_diarios (
   CONSTRAINT crm_diarios_data_unico UNIQUE (data)
 );
 
+-- Metas (aba Metas): título + linhas [{ texto, prazo, atingida }] + ordem de exibição
+CREATE TABLE IF NOT EXISTS crm_metas (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  titulo TEXT NOT NULL,
+  linhas JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ordem INT NOT NULL DEFAULT 0,
+  criado_em TIMESTAMPTZ DEFAULT now()
+);
+
 -- ── 2. SEGURANÇA (RLS) — mesmo padrão aberto usado pelo app ────────────────
 
 ALTER TABLE crm_empresas ENABLE ROW LEVEL SECURITY;
@@ -86,6 +95,7 @@ ALTER TABLE crm_eventos  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE crm_clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE crm_tarefas  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE crm_diarios  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE crm_metas    ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow anon select crm_empresas" ON crm_empresas;
 CREATE POLICY "Allow anon select crm_empresas" ON crm_empresas FOR SELECT USING (true);
@@ -140,6 +150,15 @@ DROP POLICY IF EXISTS "Allow anon update crm_diarios" ON crm_diarios;
 CREATE POLICY "Allow anon update crm_diarios" ON crm_diarios FOR UPDATE USING (true);
 DROP POLICY IF EXISTS "Allow anon delete crm_diarios" ON crm_diarios;
 CREATE POLICY "Allow anon delete crm_diarios" ON crm_diarios FOR DELETE USING (true);
+
+DROP POLICY IF EXISTS "Allow anon select crm_metas" ON crm_metas;
+CREATE POLICY "Allow anon select crm_metas" ON crm_metas FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Allow anon insert crm_metas" ON crm_metas;
+CREATE POLICY "Allow anon insert crm_metas" ON crm_metas FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow anon update crm_metas" ON crm_metas;
+CREATE POLICY "Allow anon update crm_metas" ON crm_metas FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow anon delete crm_metas" ON crm_metas;
+CREATE POLICY "Allow anon delete crm_metas" ON crm_metas FOR DELETE USING (true);
 
 -- ── 3. ÍNDICES ──────────────────────────────────────────────────────────────
 

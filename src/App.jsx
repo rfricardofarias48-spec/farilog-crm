@@ -6,10 +6,11 @@ import {
   fetchCrmEmpresas, createCrmEmpresa, updateCrmEmpresa, deleteCrmEmpresa,
 } from './lib/db';
 import TarefasModule from './Tarefas';
+import MetasModule from './Metas';
 import {
   Plus, X, Trash2, ChevronLeft, ChevronRight,
-  CalendarDays, Lock, KanbanSquare, LogOut, Users, MapPin,
-  Building2, Pencil, Truck, ListTodo,
+  CalendarDays, Lock, LogOut, Users, MapPin, Zap,
+  Building2, Pencil, Truck,
 } from 'lucide-react';
 
 // ── Paleta ─────────────────────────────────────────────────────────────────
@@ -1098,23 +1099,50 @@ function Carteira({ empresaAtiva }) {
   );
 }
 
-// ── App CRM (standalone) ────────────────────────────────────────────────────
-const TABS = [
-  { key: 'empresa',  label: 'Empresa',             icon: Building2 },
-  { key: 'pipeline', label: 'Pipeline',            icon: KanbanSquare },
-  { key: 'agenda',   label: 'Agenda',              icon: CalendarDays },
-  { key: 'carteira', label: 'Carteira de Clientes', icon: Users },
-  { key: 'tarefas',  label: 'Tarefas',             icon: ListTodo },
+// ── Navegação: 2 abas principais com sub-abas ──────────────────────────────
+const NAV = [
+  {
+    key: 'produtividade', label: 'Produtividade', icon: Zap,
+    subs: [
+      { key: 'dashboard', label: 'Dashboard' },
+      { key: 'tarefas',   label: 'Tarefas' },
+      { key: 'metas',     label: 'Metas' },
+      { key: 'historico', label: 'Histórico' },
+    ],
+  },
+  {
+    key: 'crm', label: 'CRM', icon: Users,
+    subs: [
+      { key: 'empresa',  label: 'Empresa' },
+      { key: 'pipeline', label: 'Pipeline' },
+      { key: 'agenda',   label: 'Agenda' },
+      { key: 'carteira', label: 'Carteira de Clientes' },
+    ],
+  },
 ];
 
 export default function App() {
-  const [tab, setTab] = useState('empresa');
+  const [aba, setAba]       = useState('produtividade');
+  const [aberta, setAberta] = useState(true);
+  const [subs, setSubs]     = useState({ produtividade: 'dashboard', crm: 'empresa' });
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('crm_unlocked') === 'true');
   const [empresaAtiva, setEmpresaAtiva] = useState(null);
 
   if (!unlocked) return <CRMGate onUnlock={() => setUnlocked(true)} />;
 
-  const precisaEmpresa = tab !== 'empresa' && tab !== 'tarefas' && !empresaAtiva;
+  const clickAba = (key) => {
+    if (aba === key) { setAberta(a => !a); return; }
+    setAba(key);
+    setAberta(true);
+  };
+  const clickSub = (abaKey, subKey) => {
+    setSubs(s => ({ ...s, [abaKey]: subKey }));
+    setAba(abaKey);
+    setAberta(true);
+  };
+
+  const subAtiva = subs[aba];
+  const precisaEmpresa = aba === 'crm' && subAtiva !== 'empresa' && !empresaAtiva;
 
   return (
     <div className="app-shell">
@@ -1128,11 +1156,33 @@ export default function App() {
         </div>
 
         <nav className="side-nav flex-1 px-3 py-4" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setTab(key)} className={`side-link ${tab === key ? 'active' : ''}`}>
-              <Icon size={16} /> {label}
-            </button>
-          ))}
+          {NAV.map(({ key, label, icon: Icon, subs: subList }) => {
+            const ativa = aba === key;
+            const expandida = ativa && aberta;
+            return (
+              <div key={key} className="side-group">
+                <button onClick={() => clickAba(key)} className={`side-link ${ativa ? 'active' : ''}`}>
+                  <Icon size={16} /> {label}
+                  <span className={`side-caret ${expandida ? 'open' : ''}`}>
+                    <ChevronRight size={13} />
+                  </span>
+                </button>
+                <div className={`side-sublist ${expandida ? 'open' : ''}`}>
+                  <div className="side-sublist-inner">
+                    {subList.map(s => (
+                      <button
+                        key={s.key}
+                        onClick={() => clickSub(key, s.key)}
+                        className={`side-subitem ${ativa && subs[key] === s.key ? 'active' : ''}`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </nav>
 
         {empresaAtiva && (
@@ -1157,18 +1207,24 @@ export default function App() {
 
       <main className="main-area">
         <div className="content-wrap">
-          {tab === 'empresa'  && <EmpresaSelector empresaAtiva={empresaAtiva} onSelectEmpresa={setEmpresaAtiva} />}
-          {tab === 'pipeline' && <Pipeline empresaAtiva={empresaAtiva} />}
-          {tab === 'agenda'   && <Agenda empresaAtiva={empresaAtiva} />}
-          {tab === 'carteira' && <Carteira empresaAtiva={empresaAtiva} />}
-          {tab === 'tarefas'  && <TarefasModule />}
+          <div className="content-fade" key={`${aba}:${subAtiva}`}>
+            {aba === 'produtividade' && subAtiva === 'dashboard' && <TarefasModule sub="dashboard" />}
+            {aba === 'produtividade' && subAtiva === 'tarefas'   && <TarefasModule sub="tarefas" />}
+            {aba === 'produtividade' && subAtiva === 'metas'     && <MetasModule />}
+            {aba === 'produtividade' && subAtiva === 'historico' && <TarefasModule sub="historico" />}
 
-          {precisaEmpresa && (
-            <div className="card py-14 text-center">
-              <Building2 size={22} className="mx-auto mb-2" style={{ color: '#C6CFDD' }} />
-              <p className="text-sm" style={TM}>Selecione uma empresa na aba "Empresa" para começar</p>
-            </div>
-          )}
+            {aba === 'crm' && subAtiva === 'empresa'  && <EmpresaSelector empresaAtiva={empresaAtiva} onSelectEmpresa={setEmpresaAtiva} />}
+            {aba === 'crm' && subAtiva === 'pipeline' && !precisaEmpresa && <Pipeline empresaAtiva={empresaAtiva} />}
+            {aba === 'crm' && subAtiva === 'agenda'   && !precisaEmpresa && <Agenda empresaAtiva={empresaAtiva} />}
+            {aba === 'crm' && subAtiva === 'carteira' && !precisaEmpresa && <Carteira empresaAtiva={empresaAtiva} />}
+
+            {precisaEmpresa && (
+              <div className="card py-14 text-center">
+                <Building2 size={22} className="mx-auto mb-2" style={{ color: '#C6CFDD' }} />
+                <p className="text-sm" style={TM}>Selecione uma empresa na sub-aba "Empresa" para começar</p>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
