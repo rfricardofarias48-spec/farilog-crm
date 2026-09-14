@@ -364,6 +364,19 @@ select.input-field option { background: #fff; color: var(--text); }
 /* ── Metas ───────────────────────────────────────────────────────────────── */
 .modal-lg { max-width: 780px; }
 
+/* Cabeçalho da tabela de metas */
+.meta-thead {
+  background: linear-gradient(90deg, #0B1426 0%, #16294E 60%, #1D3A6B 100%);
+  border-bottom: 2px solid var(--signal);
+}
+.meta-thead > span {
+  color: #93C5FD;
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
 .meta-row {
   display: grid;
   align-items: center;

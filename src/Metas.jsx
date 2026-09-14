@@ -240,8 +240,8 @@ export default function MetasModule() {
       ) : (
         <div className="card overflow-hidden scroll-x">
           <div style={{ minWidth: 560 }}>
-            <div className="px-5 py-3 grid text-xs font-semibold"
-              style={{ gridTemplateColumns: '28px 1fr 130px 110px 64px', gap: '10px', color: 'var(--faint)', borderBottom: '1px solid var(--line)', background: '#F8FAFC', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.08em' }}>
+            <div className="meta-thead px-5 py-3 grid text-xs font-semibold"
+              style={{ gridTemplateColumns: '28px 1fr 130px 110px 64px', gap: '10px' }}>
               <span />
               <span>Meta</span>
               <span>Próximo prazo</span>
