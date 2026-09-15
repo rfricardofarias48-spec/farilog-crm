@@ -178,155 +178,105 @@ function EmpresaModal({ initial, onClose, onSave, onDelete }) {
   );
 }
 
-// ── Aba Empresas (Seleção de empresa ativa) ─────────────────────────────────
-function EmpresaSelector({ empresaAtiva, onSelectEmpresa }) {
+// ── Escolha de empresa (modal) ───────────────────────────────────────────────
+// Ao entrar no app o usuário escolhe com qual empresa vai trabalhar; para trocar,
+// basta clicar no chip da empresa na sidebar (acima de "Bloquear").
+function EmpresaPicker({ empresaAtiva, onPick, onClose }) {
   const [empresas, setEmpresas] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-
+  const [editing, setEditing]   = useState(null);
   const MAX_EMPRESAS = 3;
-  const podeCriarNova = empresas.length < MAX_EMPRESAS;
 
   useEffect(() => {
-    fetchCrmEmpresas().then(e => {
-      setEmpresas(e);
-      setLoading(false);
-      // Se não houver empresa ativa e houver empresas, seleciona a Farilog (ou a primeira)
-      if (!empresaAtiva && e.length > 0) {
-        const farilog = e.find(emp => emp.nome === 'Farilog');
-        onSelectEmpresa(farilog ? farilog.nome : e[0].nome);
-      }
-    });
+    fetchCrmEmpresas().then(e => { setEmpresas(e); setLoading(false); });
   }, []);
-
-  const openNew = () => { setEditing(null); setModalOpen(true); };
-  const openEdit = (emp) => { setEditing(emp); setModalOpen(true); };
 
   const handleSave = async (form) => {
     if (editing) {
       const oldNome = editing.nome;
       setEmpresas(prev => prev.map(e => e.id === editing.id ? { ...e, ...form } : e));
       await updateCrmEmpresa(editing.id, form);
-      // Se a empresa que foi renomeada é a ativa, atualiza o nome ativo
-      if (empresaAtiva === oldNome) {
-        onSelectEmpresa(form.nome);
-      }
+      if (empresaAtiva === oldNome) onPick(form.nome);
     } else {
       const saved = await createCrmEmpresa(form);
       if (saved) {
         setEmpresas(prev => [...prev, saved]);
-        // Se for a primeira empresa, seleciona automaticamente
-        if (empresas.length === 0) {
-          onSelectEmpresa(saved.nome);
-        }
+        if (!empresaAtiva) onPick(saved.nome); // primeira empresa: já entra selecionada
       }
     }
     setModalOpen(false);
   };
 
   const handleDelete = async (id) => {
-    const deletedEmpresa = empresas.find(e => e.id === id);
-    setEmpresas(prev => {
-      const filtered = prev.filter(e => e.id !== id);
-      // Se a empresa ativa foi excluída, seleciona a primeira disponível
-      if (empresaAtiva === deletedEmpresa?.nome) {
-        if (filtered.length > 0) {
-          onSelectEmpresa(filtered[0].nome);
-        } else {
-          onSelectEmpresa(null);
-        }
-      }
-      return filtered;
-    });
+    const del = empresas.find(e => e.id === id);
+    setEmpresas(prev => prev.filter(e => e.id !== id));
+    if (empresaAtiva === del?.nome) onPick(null);
     setModalOpen(false);
     await deleteCrmEmpresa(id);
   };
 
-  if (loading) return <div className="card py-14 text-center text-sm" style={{ color: C.muted }}>Carregando...</div>;
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-lg font-bold" style={T}>Empresas</h2>
-          <p className="text-xs mt-0.5" style={{ color: C.muted }}>Selecione a empresa que deseja gerenciar</p>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-base font-bold" style={T}>Escolher empresa</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.faint }}><X size={18} /></button>
         </div>
-        {podeCriarNova ? (
-          <button onClick={openNew} className="btn-primary flex items-center gap-1.5">
-            <Plus size={14} /> Nova Empresa
-          </button>
+        <p className="text-xs mb-4" style={{ color: C.muted }}>Selecione a empresa com a qual você vai trabalhar. Todas as telas do CRM mostram apenas os dados dela.</p>
+
+        {loading ? (
+          <p className="text-sm py-8 text-center" style={{ color: C.muted }}>Carregando...</p>
+        ) : empresas.length === 0 ? (
+          <div className="card py-10 text-center" style={{ border: '2px dashed #C9D2E0', background: 'transparent', boxShadow: 'none' }}>
+            <Building2 size={22} className="mx-auto mb-2" style={{ color: '#C6CFDD' }} />
+            <p className="text-sm font-semibold" style={{ color: C.muted }}>Nenhuma empresa cadastrada ainda</p>
+          </div>
         ) : (
-          <span className="text-xs font-semibold px-3 py-2" style={{ color: C.faint }}>
-            Máximo de {MAX_EMPRESAS} empresas
-          </span>
+          <div className="space-y-2.5">
+            {empresas.map(emp => {
+              const isActive = empresaAtiva === emp.nome;
+              return (
+                <div
+                  key={emp.id}
+                  onClick={() => onPick(emp.nome)}
+                  className="flex items-center gap-3 px-4 py-3.5"
+                  style={{
+                    cursor: 'pointer', borderRadius: 14,
+                    background: isActive ? C.signalSoft : '#F8FAFC',
+                    border: `2px solid ${isActive ? C.signal : C.line}`,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: isActive ? 'white' : '#EDF1F6' }}>
+                    <Building2 size={16} style={{ color: isActive ? C.signalDeep : C.muted }} />
+                  </div>
+                  <p className="text-sm font-bold" style={T}>{emp.nome}</p>
+                  {isActive && <span className="text-xs font-bold px-2.5 py-1 rounded-full ml-auto" style={{ background: C.signal, color: '#fff' }}>Ativa</span>}
+                  <div className="flex items-center gap-1.5" style={{ marginLeft: isActive ? 8 : 'auto' }}>
+                    <button onClick={e => { e.stopPropagation(); setEditing(emp); setModalOpen(true); }} title="Editar"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.faint, padding: 4 }}><Pencil size={13} /></button>
+                    <button onClick={e => { e.stopPropagation(); handleDelete(emp.id); }} title="Excluir"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.faint, padding: 4 }}><Trash2 size={13} /></button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {empresas.length < MAX_EMPRESAS && (
+          <button onClick={() => { setEditing(null); setModalOpen(true); }} className="btn-primary flex items-center gap-1.5 mt-4 w-full justify-center">
+            <Plus size={14} /> Nova empresa
+          </button>
+        )}
+        {empresas.length >= MAX_EMPRESAS && (
+          <p className="text-xs mt-3 text-center" style={{ color: C.faint }}>Máximo de {MAX_EMPRESAS} empresas</p>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {empresas.map(emp => {
-          const isActive = empresaAtiva === emp.nome;
-          return (
-            <div
-              key={emp.id}
-              onClick={() => onSelectEmpresa(emp.nome)}
-              style={{
-                cursor: 'pointer',
-                background: isActive ? C.signalSoft : 'white',
-                border: `2px solid ${isActive ? C.signal : C.line}`,
-                borderRadius: '16px',
-                padding: '20px',
-                transition: 'all 0.15s',
-                position: 'relative',
-              }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.borderColor = '#C9D2E0'; }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.borderColor = C.line; }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: isActive ? 'white' : '#F2F4F8' }}>
-                  <Building2 size={18} style={{ color: isActive ? C.signalDeep : C.muted }} />
-                </div>
-                {isActive && (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: C.signal, color: '#fff' }}>
-                    Ativa
-                  </span>
-                )}
-              </div>
-              <p className="text-sm font-bold" style={T}>{emp.nome}</p>
-
-              <div className="flex items-center gap-2 mt-4">
-                <button
-                  onClick={e => { e.stopPropagation(); openEdit(emp); }}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                  style={{ background: '#F2F4F8', border: 'none', cursor: 'pointer', color: C.muted }}
-                >
-                  <Pencil size={12} /> Editar
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {empresas.length < 3 && (
-        <div className="card py-10 text-center" style={{ border: '2px dashed #C9D2E0', background: 'transparent', boxShadow: 'none' }}>
-          <Building2 size={22} className="mx-auto mb-2" style={{ color: '#C6CFDD' }} />
-          <p className="text-sm font-semibold" style={{ color: C.muted }}>
-            {empresas.length === 0 ? 'Nenhuma empresa cadastrada ainda' : `Você pode cadastrar mais ${MAX_EMPRESAS - empresas.length} empresa(s)`}
-          </p>
-          <button onClick={openNew} className="btn-primary flex items-center gap-1.5 mt-3 mx-auto">
-            <Plus size={14} /> Cadastrar Empresa
-          </button>
-        </div>
-      )}
-
       {modalOpen && (
-        <EmpresaModal
-          initial={editing}
-          onClose={() => setModalOpen(false)}
-          onSave={handleSave}
-          onDelete={handleDelete}
-        />
+        <EmpresaModal initial={editing} onClose={() => setModalOpen(false)} onSave={handleSave} onDelete={handleDelete} />
       )}
     </div>
   );
@@ -1114,7 +1064,6 @@ const NAV = [
   {
     key: 'crm', label: 'CRM', icon: Users,
     subs: [
-      { key: 'empresa',  label: 'Empresa' },
       { key: 'pipeline', label: 'Pipeline' },
       { key: 'agenda',   label: 'Agenda' },
       { key: 'carteira', label: 'Carteira de Clientes' },
@@ -1129,25 +1078,46 @@ const NAV = [
 export default function App() {
   const [aba, setAba]       = useState('produtividade');
   const [aberta, setAberta] = useState(true);
-  const [subs, setSubs]     = useState({ produtividade: 'dashboard', crm: 'empresa' });
+  const [subs, setSubs]     = useState({ produtividade: 'dashboard', crm: 'pipeline' });
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('crm_unlocked') === 'true');
-  const [empresaAtiva, setEmpresaAtiva] = useState(null);
+  const [empresaAtiva, setEmpresaAtiva] = useState(() => localStorage.getItem('crm_empresa_ativa') || null);
+  const [pickerAberto, setPickerAberto] = useState(() => !localStorage.getItem('crm_empresa_ativa'));
+
+  // Se a empresa salva não existe mais (foi excluída), volta a pedir a escolha
+  useEffect(() => {
+    fetchCrmEmpresas().then(e => {
+      const salva = localStorage.getItem('crm_empresa_ativa');
+      if (salva && !e.some(emp => emp.nome === salva)) {
+        localStorage.removeItem('crm_empresa_ativa');
+        setEmpresaAtiva(null);
+        setPickerAberto(true);
+      }
+    });
+  }, []);
 
   if (!unlocked) return <CRMGate onUnlock={() => setUnlocked(true)} />;
 
+  const pickEmpresa = (nome) => {
+    setEmpresaAtiva(nome);
+    if (nome) { localStorage.setItem('crm_empresa_ativa', nome); setPickerAberto(false); }
+    else { localStorage.removeItem('crm_empresa_ativa'); }
+  };
+
   const clickAba = (key) => {
+    if (key === 'crm' && !empresaAtiva) setPickerAberto(true);
     if (aba === key) { setAberta(a => !a); return; }
     setAba(key);
     setAberta(true);
   };
   const clickSub = (abaKey, subKey) => {
+    if (abaKey === 'crm' && !empresaAtiva) setPickerAberto(true);
     setSubs(s => ({ ...s, [abaKey]: subKey }));
     setAba(abaKey);
     setAberta(true);
   };
 
   const subAtiva = subs[aba];
-  const precisaEmpresa = aba === 'crm' && subAtiva !== 'empresa' && !empresaAtiva;
+  const precisaEmpresa = aba === 'crm' && !empresaAtiva;
 
   return (
     <div className="app-shell">
@@ -1192,14 +1162,18 @@ export default function App() {
           })}
         </nav>
 
-        {empresaAtiva && (
-          <div className="side-empresa px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-            <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl" style={{ background: 'rgba(59,130,246,0.16)', border: '1px solid rgba(59,130,246,0.35)' }}>
-              <Building2 size={14} style={{ color: '#60A5FA' }} />
-              <span className="text-xs font-semibold truncate" style={{ color: '#93C5FD' }}>{empresaAtiva}</span>
-            </div>
-          </div>
-        )}
+        <div className="side-empresa px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <button
+            onClick={() => setPickerAberto(true)}
+            title="Escolher / trocar de empresa"
+            className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl"
+            style={{ background: 'rgba(59,130,246,0.16)', border: '1px solid rgba(59,130,246,0.35)', cursor: 'pointer' }}
+          >
+            <Building2 size={14} style={{ color: '#60A5FA', flexShrink: 0 }} />
+            <span className="text-xs font-semibold truncate" style={{ color: '#93C5FD' }}>{empresaAtiva || 'Escolher empresa'}</span>
+            <ChevronRight size={12} style={{ color: '#60A5FA', marginLeft: 'auto', flexShrink: 0, transform: 'rotate(90deg)' }} />
+          </button>
+        </div>
 
         <div className="side-footer p-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <button
@@ -1220,22 +1194,26 @@ export default function App() {
             {aba === 'produtividade' && subAtiva === 'metas'     && <MetasModule />}
             {aba === 'produtividade' && subAtiva === 'historico' && <TarefasModule sub="historico" />}
 
-            {aba === 'crm' && subAtiva === 'empresa'  && <EmpresaSelector empresaAtiva={empresaAtiva} onSelectEmpresa={setEmpresaAtiva} />}
             {aba === 'crm' && subAtiva === 'pipeline' && !precisaEmpresa && <Pipeline empresaAtiva={empresaAtiva} />}
             {aba === 'crm' && subAtiva === 'agenda'   && !precisaEmpresa && <Agenda empresaAtiva={empresaAtiva} />}
             {aba === 'crm' && subAtiva === 'carteira' && !precisaEmpresa && <Carteira empresaAtiva={empresaAtiva} />}
 
-            {aba === 'crm' && subAtiva?.startsWith('prosp_') && <ProspeccaoModule sub={subAtiva.slice(6)} empresaAtiva={empresaAtiva} />}
+            {aba === 'crm' && subAtiva?.startsWith('prosp_') && !precisaEmpresa && <ProspeccaoModule sub={subAtiva.slice(6)} empresaAtiva={empresaAtiva} />}
 
             {precisaEmpresa && (
               <div className="card py-14 text-center">
                 <Building2 size={22} className="mx-auto mb-2" style={{ color: '#C6CFDD' }} />
-                <p className="text-sm" style={TM}>Selecione uma empresa na sub-aba "Empresa" para começar</p>
+                <p className="text-sm" style={TM}>Escolha a empresa com a qual você vai trabalhar</p>
+                <button onClick={() => setPickerAberto(true)} className="btn-primary mt-4 mx-auto">Escolher empresa</button>
               </div>
             )}
           </div>
         </div>
       </main>
+
+      {pickerAberto && (
+        <EmpresaPicker empresaAtiva={empresaAtiva} onPick={pickEmpresa} onClose={() => setPickerAberto(false)} />
+      )}
     </div>
   );
 }
