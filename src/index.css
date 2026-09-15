@@ -740,7 +740,43 @@ select.input-field option { background: #fff; color: var(--text); }
   position: sticky;
   top: 0;
   height: 100vh;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
+/* Botão discreto para recolher/expandir a barra lateral */
+.side-collapse-row { padding: 2px 12px 6px; }
+.side-collapse-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  background: none;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  color: rgba(143, 160, 189, 0.55);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.side-collapse-btn:hover { color: #93C5FD; background: rgba(255, 255, 255, 0.05); }
+
+/* Modo recolhido: vira uma barra de ícones */
+.sidebar.recolhida { width: 64px; }
+.sidebar.recolhida .side-brand { justify-content: center; padding-left: 0; padding-right: 0; }
+.sidebar.recolhida .side-brand-text { display: none; }
+.sidebar.recolhida .side-link-text { display: none; }
+.sidebar.recolhida .side-caret { display: none; }
+.sidebar.recolhida .side-sublist { display: none; }
+.sidebar.recolhida .side-nav { padding-left: 10px; padding-right: 10px; }
+.sidebar.recolhida .side-link { justify-content: center; padding: 10px 0; gap: 0; }
+.sidebar.recolhida .side-collapse-row { padding-left: 10px; padding-right: 10px; }
+.sidebar.recolhida .side-collapse-btn { justify-content: center; gap: 0; }
+.sidebar.recolhida .side-empresa { padding-left: 10px; padding-right: 10px; }
+.sidebar.recolhida .side-empresa button { justify-content: center; padding: 8px 0; gap: 0; }
+.sidebar.recolhida .side-empresa span, .sidebar.recolhida .side-empresa-chev { display: none; }
+.sidebar.recolhida .side-footer { padding-left: 10px; padding-right: 10px; }
 .main-area {
   flex: 1;
   padding: 28px 32px;
@@ -812,6 +848,8 @@ select.input-field option { background: #fff; color: var(--text); }
   .sidebar .side-footer .side-link .side-link-text { display: none; }
   .sidebar .side-empresa { display: none; }
   .sidebar .side-brand-text { display: none; }
+  .side-collapse-row { display: none; }
+  .sidebar.recolhida { width: 100%; }
   .main-area { padding: 18px 14px; }
 }
 

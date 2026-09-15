@@ -1082,6 +1082,7 @@ export default function App() {
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('crm_unlocked') === 'true');
   const [empresaAtiva, setEmpresaAtiva] = useState(() => localStorage.getItem('crm_empresa_ativa') || null);
   const [pickerAberto, setPickerAberto] = useState(() => !localStorage.getItem('crm_empresa_ativa'));
+  const [recolhida, setRecolhida] = useState(() => localStorage.getItem('crm_sidebar_recolhida') === '1');
 
   // Se a empresa salva não existe mais (foi excluída), volta a pedir a escolha
   useEffect(() => {
@@ -1103,7 +1104,17 @@ export default function App() {
     else { localStorage.removeItem('crm_empresa_ativa'); }
   };
 
+  const toggleSidebar = () => {
+    setRecolhida(r => { localStorage.setItem('crm_sidebar_recolhida', r ? '0' : '1'); return !r; });
+  };
+
   const clickAba = (key) => {
+    if (recolhida) {
+      // na barra recolhida os rótulos e sub-abas estão ocultos: o clique expande primeiro
+      setRecolhida(false); localStorage.setItem('crm_sidebar_recolhida', '0');
+      if (aba !== key) { setAba(key); setAberta(true); }
+      return;
+    }
     if (key === 'crm' && !empresaAtiva) setPickerAberto(true);
     if (aba === key) { setAberta(a => !a); return; }
     setAba(key);
@@ -1121,8 +1132,8 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="flex items-center gap-2.5 px-4" style={{ height: 62, borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+      <aside className={`sidebar ${recolhida ? 'recolhida' : ''}`}>
+        <div className="side-brand flex items-center gap-2.5 px-4" style={{ height: 62, borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
           <LogoMark size={32} />
           <div className="side-brand-text" style={{ lineHeight: 1.15 }}>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 14.5, fontWeight: 700, color: '#fff', margin: 0 }}>Produtividade</p>
@@ -1136,8 +1147,8 @@ export default function App() {
             const expandida = ativa && aberta;
             return (
               <div key={key} className="side-group">
-                <button onClick={() => clickAba(key)} className={`side-link ${ativa ? 'active' : ''}`}>
-                  <Icon size={16} /> {label}
+                <button onClick={() => clickAba(key)} className={`side-link ${ativa ? 'active' : ''}`} title={label}>
+                  <Icon size={16} style={{ flexShrink: 0 }} /> <span className="side-link-text">{label}</span>
                   <span className={`side-caret ${expandida ? 'open' : ''}`}>
                     <ChevronRight size={13} />
                   </span>
@@ -1162,6 +1173,13 @@ export default function App() {
           })}
         </nav>
 
+        <div className="side-collapse-row">
+          <button onClick={toggleSidebar} className="side-collapse-btn" title={recolhida ? 'Expandir menu' : 'Recolher menu'}>
+            {recolhida ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            <span className="side-link-text">Recolher menu</span>
+          </button>
+        </div>
+
         <div className="side-empresa px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <button
             onClick={() => setPickerAberto(true)}
@@ -1171,7 +1189,7 @@ export default function App() {
           >
             <Building2 size={14} style={{ color: '#60A5FA', flexShrink: 0 }} />
             <span className="text-xs font-semibold truncate" style={{ color: '#93C5FD' }}>{empresaAtiva || 'Escolher empresa'}</span>
-            <ChevronRight size={12} style={{ color: '#60A5FA', marginLeft: 'auto', flexShrink: 0, transform: 'rotate(90deg)' }} />
+            <ChevronRight className="side-empresa-chev" size={12} style={{ color: '#60A5FA', marginLeft: 'auto', flexShrink: 0, transform: 'rotate(90deg)' }} />
           </button>
         </div>
 
