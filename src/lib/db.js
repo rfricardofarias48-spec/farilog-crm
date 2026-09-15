@@ -185,24 +185,28 @@ function mapCrmTarefa(r) {
     concluida:   Boolean(r.concluida),
     criadaEm:    r.criada_em,
     concluidaEm: r.concluida_em || null,
+    empresa:     r.empresa || 'Hurma', // registros antigos pertencem à Hurma
   };
 }
 
-export async function fetchCrmTarefas() {
+// Filtragem client-side: funciona mesmo antes da coluna empresa existir na tabela
+export async function fetchCrmTarefas(empresa = null) {
   const { data, error } = await supabase
     .from('crm_tarefas')
     .select('*')
     .order('criada_em', { ascending: false });
   if (error) { console.error('[db] fetchCrmTarefas:', error.message); return []; }
-  return data.map(mapCrmTarefa);
+  const rows = empresa ? data.filter(r => mapCrmTarefa(r).empresa === empresa) : data;
+  return rows.map(mapCrmTarefa);
 }
 
-export async function createCrmTarefa({ titulo }) {
-  const { data, error } = await supabase
-    .from('crm_tarefas')
-    .insert({ titulo })
-    .select()
-    .single();
+export async function createCrmTarefa({ titulo, empresa }) {
+  const base = { titulo };
+  let { data, error } = await supabase.from('crm_tarefas').insert({ ...base, empresa: empresa || null }).select().single();
+  if (error) {
+    // coluna empresa ainda não criada no banco → insere sem ela (vira 'Hurma' por padrão)
+    ({ data, error } = await supabase.from('crm_tarefas').insert(base).select().single());
+  }
   if (error) { console.error('[db] createCrmTarefa:', error.message); return null; }
   return mapCrmTarefa(data);
 }
@@ -334,25 +338,30 @@ function mapCrmMeta(r) {
     linhas:   Array.isArray(r.linhas) ? r.linhas : [],
     ordem:    Number(r.ordem ?? 0),
     criadoEm: r.criado_em,
+    empresa:  r.empresa || 'Hurma', // registros antigos pertencem à Hurma
   };
 }
 
-export async function fetchCrmMetas() {
+export async function fetchCrmMetas(empresa = null) {
   const { data, error } = await supabase
     .from('crm_metas')
     .select('*')
     .order('ordem', { ascending: true })
     .order('criado_em', { ascending: true });
   if (error) { console.error('[db] fetchCrmMetas:', error.message); return []; }
-  return data.map(mapCrmMeta);
+  const rows = empresa ? data.filter(r => mapCrmMeta(r).empresa === empresa) : data;
+  return rows.map(mapCrmMeta);
 }
 
-export async function createCrmMeta({ titulo, linhas, ordem }) {
-  const { data, error } = await supabase
+export async function createCrmMeta({ titulo, linhas, ordem, empresa }) {
+  const base = { titulo, linhas: linhas ?? [], ordem: ordem ?? 0 };
+  let { data, error } = await supabase
     .from('crm_metas')
-    .insert({ titulo, linhas: linhas ?? [], ordem: ordem ?? 0 })
-    .select()
-    .single();
+    .insert({ ...base, empresa: empresa || null })
+    .select().single();
+  if (error) {
+    ({ data, error } = await supabase.from('crm_metas').insert(base).select().single());
+  }
   if (error) { console.error('[db] createCrmMeta:', error.message); return null; }
   return mapCrmMeta(data);
 }

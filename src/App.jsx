@@ -1207,10 +1207,10 @@ export default function App() {
       <main className="main-area">
         <div className="content-wrap">
           <div className="content-fade" key={`${aba}:${subAtiva}`}>
-            {aba === 'produtividade' && subAtiva === 'dashboard' && <TarefasModule sub="dashboard" />}
-            {aba === 'produtividade' && subAtiva === 'tarefas'   && <TarefasModule sub="tarefas" />}
-            {aba === 'produtividade' && subAtiva === 'metas'     && <MetasModule />}
-            {aba === 'produtividade' && subAtiva === 'historico' && <TarefasModule sub="historico" />}
+            {aba === 'produtividade' && subAtiva === 'dashboard' && <TarefasModule sub="dashboard" empresa={empresaAtiva} />}
+            {aba === 'produtividade' && subAtiva === 'tarefas'   && <TarefasModule sub="tarefas" empresa={empresaAtiva} />}
+            {aba === 'produtividade' && subAtiva === 'metas'     && <MetasModule empresa={empresaAtiva} />}
+            {aba === 'produtividade' && subAtiva === 'historico' && <TarefasModule sub="historico" empresa={empresaAtiva} />}
 
             {aba === 'crm' && subAtiva === 'pipeline' && !precisaEmpresa && <Pipeline empresaAtiva={empresaAtiva} />}
             {aba === 'crm' && subAtiva === 'agenda'   && !precisaEmpresa && <Agenda empresaAtiva={empresaAtiva} />}

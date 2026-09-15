@@ -153,15 +153,16 @@ function MetaDetalhe({ meta, isNew, onClose, onSave, onDelete }) {
 }
 
 // ── Módulo principal: lista de metas ────────────────────────────────────────
-export default function MetasModule() {
+export default function MetasModule({ empresa = null }) {
   const [metas, setMetas]       = useState([]);
   const [loading, setLoading]   = useState(true);
   const [detalhe, setDetalhe]   = useState(null); // { meta } | { novo: true }
   const [erro, setErro]         = useState('');
 
   useEffect(() => {
-    fetchCrmMetas().then(m => { setMetas(m); setLoading(false); });
-  }, []);
+    setLoading(true);
+    fetchCrmMetas(empresa).then(m => { setMetas(m); setLoading(false); });
+  }, [empresa]);
 
   const openNew = () => setDetalhe({ novo: true });
   const openMeta = (meta) => setDetalhe({ meta });
@@ -169,7 +170,7 @@ export default function MetasModule() {
   const handleSave = async ({ titulo, linhas }) => {
     if (detalhe?.novo) {
       const ordem = metas.length === 0 ? 0 : Math.max(...metas.map(m => m.ordem)) + 1;
-      const saved = await createCrmMeta({ titulo, linhas, ordem });
+      const saved = await createCrmMeta({ titulo, linhas, ordem, empresa });
       if (!saved) return false;
       setMetas(prev => [...prev, saved]);
       setErro('');
@@ -182,7 +183,7 @@ export default function MetasModule() {
     const ok = await updateCrmMeta(alvo.id, { titulo, linhas });
     if (!ok) {
       setErro('Não foi possível salvar. Verifique sua conexão e se a tabela crm_metas foi criada no Supabase.');
-      fetchCrmMetas().then(setMetas);
+      fetchCrmMetas(empresa).then(setMetas);
     }
     return ok;
   };

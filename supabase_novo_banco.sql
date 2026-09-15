@@ -236,3 +236,13 @@ Reuniao positiva no dia 09/06, documentacao inicial enviada, aguardando ok do cl
 ON CONFLICT (id) DO NOTHING;
 
 -- Fim da migração. Nenhum dado de clientes/tarefas/diários existia no banco anterior.
+
+-- ============================================================================
+-- MIGRAÇÃO 2 (14/09/2026): Tarefas e Metas passam a pertencer a uma empresa.
+-- Os registros existentes (tarefas e metas atuais) são da conta HURMA.
+-- Execute no SQL Editor do Supabase. Seguro rodar de novo.
+-- ============================================================================
+ALTER TABLE crm_tarefas ADD COLUMN IF NOT EXISTS empresa TEXT;
+ALTER TABLE crm_metas   ADD COLUMN IF NOT EXISTS empresa TEXT;
+UPDATE crm_tarefas SET empresa = 'Hurma' WHERE empresa IS NULL;
+UPDATE crm_metas   SET empresa = 'Hurma' WHERE empresa IS NULL;

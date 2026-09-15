@@ -513,20 +513,21 @@ function TasksHistory({ tarefas, diarios }) {
 }
 
 // ── Módulo principal (sub-aba controlada pela sidebar) ─────────────────────
-export default function TarefasModule({ sub = 'dashboard' }) {
+export default function TarefasModule({ sub = 'dashboard', empresa = null }) {
   const [tarefas, setTarefas] = useState([]);
   const [diarios, setDiarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingDia, setSavingDia] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetchCrmTarefas(), fetchCrmDiarios()])
+    setLoading(true);
+    Promise.all([fetchCrmTarefas(empresa), fetchCrmDiarios()])
       .then(([t, d]) => { setTarefas(t); setDiarios(d); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [empresa]);
 
   const handleAdd = async (titulo) => {
-    const saved = await createCrmTarefa({ titulo });
+    const saved = await createCrmTarefa({ titulo, empresa });
     if (saved) {
       setTarefas(prev => [saved, ...prev]);
       return true;
