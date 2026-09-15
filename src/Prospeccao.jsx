@@ -100,7 +100,7 @@ function DonutStatus({ prospectas }) {
   return (
     <div className="prosp-donut-wrap">
       <div style={{ position: 'relative', flexShrink: 0 }}>
-        <svg viewBox="0 0 120 120" style={{ width: 240, height: 240, display: 'block' }}>
+        <svg viewBox="0 0 120 120" className="prosp-donut-svg">
           <circle cx="60" cy="60" r={R} fill="none" stroke="#EEF2F7" strokeWidth="20" />
           {total > 0 && segs.filter(s => s.value > 0).map(s => {
             const frac = s.value / total;
