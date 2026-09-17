@@ -5,7 +5,7 @@ import {
 } from './lib/db';
 import {
   Plus, Trash2, Check, ListTodo, History, CalendarCheck,
-  ClipboardList, Award, CalendarDays, Flame, Info,
+  ClipboardList, Award, CalendarDays, Flame, Info, AlertTriangle,
 } from 'lucide-react';
 
 // ── Helpers de data (datas tratadas como valores de calendário, sem fuso) ──
@@ -14,6 +14,40 @@ const TODAY_ISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paul
 function isoAddDays(iso, n) {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+// Quantos dias para trás o app procura dias não fechados
+const LOOKBACK = 30;
+
+// Dias sem registro, de ontem para trás, parando no primeiro dia já fechado
+// (e olhando no máximo LOOKBACK dias). Se a busca não encostar em nenhum dia
+// fechado, não há como saber o que ficou para trás — retorna vazio.
+function diasAtrasados(diarios, hoje = TODAY_ISO) {
+  const regs = new Set(diarios.map(d => d.data));
+  const faltando = [];
+  let ancorado = false;
+  for (let dia = isoAddDays(hoje, -1), i = 0; i < LOOKBACK; dia = isoAddDays(dia, -1), i++) {
+    if (regs.has(dia)) { ancorado = true; break; }
+    faltando.push(dia);
+  }
+  return ancorado ? faltando.reverse() : []; // do mais antigo para o mais recente
+}
+
+// Dia que o app assume que você vai fechar: o mais antigo sem registro na
+// sequência que termina ontem. Esqueceu de fechar ontem? É ontem que aparece.
+function diaEmAberto(diarios, hoje = TODAY_ISO) {
+  const faltando = diasAtrasados(diarios, hoje);
+  return faltando.length ? faltando[0] : hoje;
+}
+
+// Depois de fechar um dia, qual o próximo? O próximo sem registro depois dele —
+// ou hoje, se todos os dias até agora já estiverem fechados.
+function proximoEmAberto(diarios, fechado, hoje = TODAY_ISO) {
+  const regs = new Set(diarios.map(d => d.data));
+  for (let dia = isoAddDays(fechado, 1), i = 0; dia <= hoje && i < LOOKBACK; dia = isoAddDays(dia, 1), i++) {
+    if (!regs.has(dia)) return dia;
+  }
+  return hoje;
 }
 
 function fmtDDMM(iso) {
@@ -162,6 +196,7 @@ function TasksDashboard({ tarefas, diarios }) {
   const concluidasMes = tarefas.filter(t => t.concluida && diaData(t.concluidaEm).startsWith(mes)).length;
   const hojeReg = diarios.find(d => d.data === TODAY_ISO);
   const pendentes = tarefas.filter(t => !t.concluida).length;
+  const atrasados = diasAtrasados(diarios);
 
   return (
     <div className="space-y-4">
@@ -173,6 +208,18 @@ function TasksDashboard({ tarefas, diarios }) {
       </div>
 
       <Chart15 diarios={diarios} />
+
+      {atrasados.length > 0 && (
+        <div className="card" style={{ padding: '14px 18px', background: 'var(--warn-soft)', borderColor: 'transparent' }}>
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={15} style={{ color: 'var(--warn)', flexShrink: 0, marginTop: 1 }} />
+            <p className="text-sm" style={{ color: 'var(--text)', flex: 1, minWidth: 0 }}>
+              <span className="font-bold">{atrasados.length} dia(s) sem registro</span>
+              <span style={{ color: 'var(--muted)' }}> — {atrasados.map(fmtDDMM).join(', ')}. Na sub-aba <b>Tarefas</b> você pode escolher o dia e fechá-lo.</span>
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ padding: '18px 20px' }}>
         <div className="flex items-center gap-2 mb-1.5">
@@ -202,20 +249,25 @@ function TasksDashboard({ tarefas, diarios }) {
 }
 
 // ── Sub-aba Tarefas (lista + resumo do dia) ────────────────────────────────
-function TasksList({ tarefas, hojeReg, onAdd, onToggle, onDelete, onSaveDia, savingDia }) {
+function TasksList({ tarefas, diarios, diaAtual, onMudarDia, onAdd, onToggle, onDelete, onSaveDia, savingDia }) {
+  const regDia = diarios.find(d => d.data === diaAtual) || null;
   const [novoTitulo, setNovoTitulo] = useState('');
-  const [resumo, setResumo] = useState(hojeReg?.resumo || '');
-  const [nota, setNota] = useState(hojeReg?.nota || 0);
+  const [resumo, setResumo] = useState(regDia?.resumo || '');
+  const [nota, setNota] = useState(regDia?.nota || 0);
   const [feedback, setFeedback] = useState(null); // { tipo: 'ok' | 'erro', msg }
   const [erroTarefa, setErroTarefa] = useState(false);
 
+  // sincroniza o formulário quando o dia selecionado muda ou o registro dele é atualizado
   useEffect(() => {
-    setResumo(hojeReg?.resumo || '');
-    setNota(hojeReg?.nota || 0);
-  }, [hojeReg?.atualizadoEm]);
+    setResumo(regDia?.resumo || '');
+    setNota(regDia?.nota || 0);
+  }, [diaAtual, regDia?.atualizadoEm]);
+
+  const limparFeedback = () => { if (feedback) setFeedback(null); };
 
   const pendentes = tarefas.filter(t => !t.concluida);
   const concluidas = tarefas.filter(t => t.concluida);
+  const diaPassado = diaAtual !== TODAY_ISO;
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -228,9 +280,9 @@ function TasksList({ tarefas, hojeReg, onAdd, onToggle, onDelete, onSaveDia, sav
 
   const handleSave = async () => {
     setFeedback(null);
-    const ok = await onSaveDia({ resumo, nota });
+    const ok = await onSaveDia({ data: diaAtual, resumo, nota });
     if (ok) {
-      setFeedback({ tipo: 'ok', msg: `Registro salvo às ${fmtHora(new Date().toISOString())}.` });
+      setFeedback({ tipo: 'ok', msg: `Registro de ${fmtDDMM(diaAtual)} salvo às ${fmtHora(new Date().toISOString())}.` });
     } else {
       setFeedback({ tipo: 'erro', msg: 'Não foi possível salvar. Verifique sua conexão e se o script supabase_novo_banco.sql foi executado no Supabase.' });
     }
@@ -321,14 +373,35 @@ function TasksList({ tarefas, hojeReg, onAdd, onToggle, onDelete, onSaveDia, sav
             <CalendarCheck size={15} style={{ color: 'var(--signal)' }} />
             <h3 className="text-sm font-bold" style={{ color: 'var(--text)' }}>Resumo do dia</h3>
           </div>
-          <span className="text-xs font-semibold" style={{ color: 'var(--faint)' }}>{fmtLonga(TODAY_ISO)}</span>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold" style={{ color: 'var(--faint)' }}>Dia</label>
+            <input
+              type="date"
+              className="input-field"
+              style={{ width: 172, padding: '7px 10px' }}
+              value={diaAtual}
+              max={TODAY_ISO}
+              onChange={e => { if (e.target.value) onMudarDia(e.target.value); }}
+            />
+          </div>
         </div>
+
+        {diaPassado && (
+          <div className="flex items-start gap-2.5 mb-3" style={{ padding: '11px 13px', borderRadius: 10, background: 'var(--warn-soft)' }}>
+            <AlertTriangle size={14} style={{ color: 'var(--warn)', flexShrink: 0, marginTop: 1 }} />
+            <p className="text-xs" style={{ color: 'var(--text)', flex: 1, minWidth: 0 }}>
+              {regDia
+                ? <>Editando o dia <b>{fmtDDMM(diaAtual)}</b> — salvar só atualiza este dia.</>
+                : <>O dia <b>{fmtDDMM(diaAtual)}</b> ainda não foi fechado. Registre-o agora; ao salvar, a tela já pula para o próximo dia em aberto.</>}
+            </p>
+          </div>
+        )}
 
         <textarea
           className="input-field"
           rows={3}
           value={resumo}
-          onChange={e => setResumo(e.target.value)}
+          onChange={e => { setResumo(e.target.value); limparFeedback(); }}
           placeholder="Como foi o dia? O que rendeu, o que travou..."
           style={{ resize: 'none' }}
         />
@@ -344,7 +417,7 @@ function TasksList({ tarefas, hojeReg, onAdd, onToggle, onDelete, onSaveDia, sav
                   key={n}
                   type="button"
                   className="nota-pill"
-                  onClick={() => setNota(n)}
+                  onClick={() => { setNota(n); limparFeedback(); }}
                   style={sel ? { background: c.solid, borderColor: c.solid, color: '#fff' } : null}
                 >
                   {n}
@@ -356,16 +429,16 @@ function TasksList({ tarefas, hojeReg, onAdd, onToggle, onDelete, onSaveDia, sav
 
         <div className="flex items-center gap-3 mt-4 flex-wrap">
           <button type="button" className="btn-accent" onClick={handleSave} disabled={!nota || savingDia}>
-            {savingDia ? 'Salvando...' : hojeReg ? 'Atualizar registro do dia' : 'Salvar registro do dia'}
+            {savingDia ? 'Salvando...' : regDia ? 'Atualizar registro' : 'Salvar registro'}
           </button>
           {feedback && (
             <span className="text-xs font-semibold" style={{ color: feedback.tipo === 'ok' ? 'var(--ok)' : 'var(--danger)' }}>
               {feedback.msg}
             </span>
           )}
-          {!feedback && hojeReg && (
+          {!feedback && regDia && (
             <span className="text-xs" style={{ color: 'var(--faint)' }}>
-              Último registro hoje às {fmtHora(hojeReg.atualizadoEm)}
+              {diaPassado ? `Registro de ${fmtDDMM(regDia.data)}` : 'Último registro hoje'} às {fmtHora(regDia.atualizadoEm)}
             </span>
           )}
         </div>
@@ -518,6 +591,8 @@ export default function TarefasModule({ sub = 'dashboard', empresa = null }) {
   const [diarios, setDiarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingDia, setSavingDia] = useState(false);
+  // dia selecionado no formulário; null = "o dia em aberto" (auto)
+  const [diaSel, setDiaSel] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -525,6 +600,8 @@ export default function TarefasModule({ sub = 'dashboard', empresa = null }) {
       .then(([t, d]) => { setTarefas(t); setDiarios(d); })
       .finally(() => setLoading(false));
   }, [empresa]);
+
+  const diaAtual = diaSel || diaEmAberto(diarios);
 
   const handleAdd = async (titulo) => {
     const saved = await createCrmTarefa({ titulo, empresa });
@@ -547,21 +624,21 @@ export default function TarefasModule({ sub = 'dashboard', empresa = null }) {
     await deleteCrmTarefa(t.id);
   };
 
-  const handleSaveDia = async ({ resumo, nota }) => {
+  const handleSaveDia = async ({ data, resumo, nota }) => {
     setSavingDia(true);
-    const saved = await saveCrmDiario({ data: TODAY_ISO, resumo, nota });
+    const saved = await saveCrmDiario({ data, resumo, nota });
     setSavingDia(false);
     if (saved) {
       setDiarios(prev => {
         const exists = prev.some(d => d.data === saved.data);
         return exists ? prev.map(d => d.data === saved.data ? saved : d) : [...prev, saved].sort((a, b) => a.data.localeCompare(b.data));
       });
+      // fechou este dia → o formulário já oferece o próximo dia em aberto
+      setDiaSel(proximoEmAberto(diarios, saved.data));
       return true;
     }
     return false;
   };
-
-  const hojeReg = diarios.find(d => d.data === TODAY_ISO);
 
   const SUB_META = {
     dashboard: { title: 'Dashboard',   desc: 'Visão geral da sua produtividade' },
@@ -584,7 +661,7 @@ export default function TarefasModule({ sub = 'dashboard', empresa = null }) {
       ) : (
         <>
           {sub === 'dashboard' && <TasksDashboard tarefas={tarefas} diarios={diarios} />}
-          {sub === 'tarefas'   && <TasksList tarefas={tarefas} hojeReg={hojeReg} onAdd={handleAdd} onToggle={handleToggle} onDelete={handleDelete} onSaveDia={handleSaveDia} savingDia={savingDia} />}
+          {sub === 'tarefas'   && <TasksList tarefas={tarefas} diarios={diarios} diaAtual={diaAtual} onMudarDia={setDiaSel} onAdd={handleAdd} onToggle={handleToggle} onDelete={handleDelete} onSaveDia={handleSaveDia} savingDia={savingDia} />}
           {sub === 'historico' && <TasksHistory tarefas={tarefas} diarios={diarios} />}
         </>
       )}
