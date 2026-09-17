@@ -246,3 +246,10 @@ ALTER TABLE crm_tarefas ADD COLUMN IF NOT EXISTS empresa TEXT;
 ALTER TABLE crm_metas   ADD COLUMN IF NOT EXISTS empresa TEXT;
 UPDATE crm_tarefas SET empresa = 'Hurma' WHERE empresa IS NULL;
 UPDATE crm_metas   SET empresa = 'Hurma' WHERE empresa IS NULL;
+
+-- ============================================================================
+-- MIGRAÇÃO 3 (15/09/2026): Segundo número de contato na prospecção.
+-- Listas com 2 telefones por empresa ficam salvos em telefone2.
+-- Execute no SQL Editor do Supabase. Seguro rodar de novo.
+-- ============================================================================
+ALTER TABLE crm_prospectas ADD COLUMN IF NOT EXISTS telefone2 TEXT;

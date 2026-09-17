@@ -29,15 +29,29 @@ function parseCsvText(text, delim) {
 
 const looksPhone = (s) => !!s && (/\(\d{2}\)/.test(s) || /\b0800\b/.test(s) || /\d{4,5}-\d{4}/.test(s));
 
+// A célula inteira é um telefone (com sufixo tipo "(Gravataí)" permitido) — evita
+// tratar OBS em texto ("pediu retorno no 3470-9000") como um segundo número
+const looksPhoneCell = (s) => {
+  const t = (s || '').trim().replace(/\s*\([^)]*\)\s*$/, '').trim();
+  if (!t || t.length > 28) return false;
+  return /^(\(\d{2}\)\s*)?\d{4,5}-?\d{4}$/.test(t) || /^0800\s?\d{3}-?\d{4}$/.test(t);
+};
+
 function mapHurmaRow(cols) {
   const clean = (v) => (v || '').trim();
   let empresa = clean(cols[1]), cidade = clean(cols[2]), nicho = clean(cols[3]);
   let telefone = clean(cols[4]), obs = clean(cols[5]), contatoEm = clean(cols[6]);
+  let telefone2 = '';
   if (!empresa || /^empresa$/i.test(empresa)) return null; // cabeçalho / linha vazia
   // Linha desalinhada (sem cidade): o telefone caiu uma coluna para a esquerda
   if (!telefone && looksPhone(nicho)) { telefone = nicho; nicho = cidade; cidade = ''; }
   else if (!telefone && looksPhone(cidade)) { telefone = cidade; cidade = ''; }
-  return { empresa, cidade, nicho, telefone, obs, contatoEm };
+  // Lista com 2 números de contato: a coluna extra empurra OBS e "Contato em" uma para a direita
+  if (looksPhoneCell(obs)) {
+    if (telefone) { telefone2 = obs; obs = contatoEm; contatoEm = clean(cols[7]); }
+    else { telefone = obs; obs = contatoEm; contatoEm = clean(cols[7]); }
+  }
+  return { empresa, cidade, nicho, telefone, telefone2, obs, contatoEm };
 }
 
 export const norm = (s) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();

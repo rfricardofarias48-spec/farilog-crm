@@ -391,6 +391,7 @@ function mapCrmProspecta(r) {
     cidade:        r.cidade || '',
     nicho:         r.nicho || '',
     telefone:      r.telefone || '',
+    telefone2:     r.telefone2 || '',
     obs:           r.obs || '',
     contatoEm:     r.contato_em || '',
     lista:         r.lista || '',
@@ -412,17 +413,20 @@ export async function fetchCrmProspectas() {
 
 // Insere em lotes de 200 para não estourar o limite de requisição
 export async function createCrmProspectasBulk(items) {
-  const rows = items.map(i => ({
+  const full = items.map(i => ({
     empresa:    i.empresa,
     cidade:     i.cidade     || null,
     nicho:      i.nicho      || null,
     telefone:   i.telefone   || null,
+    telefone2:  i.telefone2  || null,
     obs:        i.obs        || null,
     contato_em: i.contatoEm  || null,
     lista:      i.lista      || null,
   }));
-  for (let i = 0; i < rows.length; i += 200) {
-    const { error } = await supabase.from('crm_prospectas').insert(rows.slice(i, i + 200));
+  const slim = full.map(({ telefone2, ...r }) => r); // banco sem a coluna (migração pendente)
+  for (let i = 0; i < full.length; i += 200) {
+    let { error } = await supabase.from('crm_prospectas').insert(full.slice(i, i + 200));
+    if (error) ({ error } = await supabase.from('crm_prospectas').insert(slim.slice(i, i + 200)));
     if (error) { console.error('[db] createCrmProspectasBulk:', error.message); return false; }
   }
   return true;
@@ -434,13 +438,18 @@ export async function updateCrmProspecta(id, patch) {
   if (patch.cidade        !== undefined) p.cidade         = patch.cidade;
   if (patch.nicho         !== undefined) p.nicho          = patch.nicho;
   if (patch.telefone      !== undefined) p.telefone       = patch.telefone;
+  if (patch.telefone2     !== undefined) p.telefone2      = patch.telefone2 || null;
   if (patch.obs           !== undefined) p.obs            = patch.obs;
   if (patch.contatoEm     !== undefined) p.contato_em     = patch.contatoEm;
   if (patch.lista         !== undefined) p.lista          = patch.lista;
   if (patch.status        !== undefined) p.status         = patch.status;
   if (patch.ultimoContato !== undefined) p.ultimo_contato = patch.ultimoContato || null;
   if (patch.retornoEm     !== undefined) p.retorno_em     = patch.retornoEm || null;
-  const { error } = await supabase.from('crm_prospectas').update(p).eq('id', id);
+  let { error } = await supabase.from('crm_prospectas').update(p).eq('id', id);
+  if (error && p.telefone2 !== undefined) { // banco sem a coluna (migração pendente): salva o resto
+    const { telefone2, ...sem2 } = p;
+    ({ error } = await supabase.from('crm_prospectas').update(sem2).eq('id', id));
+  }
   if (error) { console.error('[db] updateCrmProspecta:', error.message); return false; }
   return true;
 }

@@ -46,6 +46,7 @@ function isoAddDays(iso, n) {
 async function moverParaPipeline(lead, empresaAtiva, extra = {}) {
   const obs = [`Origem: Prospecção${lead.lista ? ` (${lead.lista})` : ''}`];
   if (lead.nicho) obs.push(`Nicho: ${lead.nicho}`);
+  if (lead.telefone2) obs.push(`Tel. 2: ${lead.telefone2}`);
   if (lead.obs)   obs.push(lead.obs);
   return createCrmLead({
     nomeEmpresa:   lead.empresa,
@@ -222,23 +223,27 @@ function LeadEditModal({ lead, onClose, onSave, onDelete }) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Cidade</label>
-              <input className="input-field" value={form.cidade} onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))} />
+              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Telefone</label>
+              <input className="input-field" value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Nicho</label>
-              <input className="input-field" value={form.nicho} onChange={e => setForm(f => ({ ...f, nicho: e.target.value }))} />
+              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Telefone 2</label>
+              <input className="input-field" value={form.telefone2 || ''} onChange={e => setForm(f => ({ ...f, telefone2: e.target.value }))} placeholder="Segundo contato (opcional)" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Telefone</label>
-              <input className="input-field" value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} />
+              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Cidade</label>
+              <input className="input-field" value={form.cidade} onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))} />
             </div>
             <div>
               <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Lista</label>
               <input className="input-field" value={form.lista} onChange={e => setForm(f => ({ ...f, lista: e.target.value }))} />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Nicho</label>
+            <input className="input-field" value={form.nicho} onChange={e => setForm(f => ({ ...f, nicho: e.target.value }))} />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -378,21 +383,26 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
         </div>
       ) : (
         <div className="card overflow-hidden scroll-x">
-          <div style={{ minWidth: 860 }}>
-            <div className="meta-thead prosp-leads-thead px-5 py-3 grid text-xs font-semibold" style={{ gridTemplateColumns: '1.6fr 110px 1fr 190px 90px 130px 110px', gap: '8px' }}>
-              <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span><span>Últ. contato</span><span>Status</span><span>Lista</span>
+          {(() => {
+            const temTel2 = filtrados.some(p => p.telefone2);
+            const cols = temTel2 ? '1.5fr 100px 1fr 160px 160px 85px 125px 105px' : '1.6fr 110px 1fr 190px 90px 130px 110px';
+            return (
+          <div style={{ minWidth: temTel2 ? 950 : 860 }}>
+            <div className="meta-thead prosp-leads-thead px-5 py-3 grid text-xs font-semibold" style={{ gridTemplateColumns: cols, gap: '8px' }}>
+              <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span>{temTel2 && <span>Telefone 2</span>}<span>Últ. contato</span><span>Status</span><span>Lista</span>
             </div>
             {filtrados.map((p, idx) => {
               const st = statusInfo(p.status);
               const venc = p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= TODAY_ISO);
               return (
                 <div key={p.id} className={`meta-row prosp-leads-row ${idx % 2 === 1 ? 'alt' : ''}`}
-                  style={{ gridTemplateColumns: '1.6fr 110px 1fr 190px 90px 130px 110px', gap: '8px', borderBottom: idx < filtrados.length - 1 ? '1px solid var(--line)' : 'none' }}
+                  style={{ gridTemplateColumns: cols, gap: '8px', borderBottom: idx < filtrados.length - 1 ? '1px solid var(--line)' : 'none' }}
                   onClick={() => setEditando(p)}>
                   <span className="font-semibold truncate" style={{ color: 'var(--text)' }}>{p.empresa}</span>
                   <span className="text-xs" style={{ color: 'var(--muted)' }}>{p.cidade || '—'}</span>
                   <span className="text-xs truncate" style={{ color: 'var(--muted)' }}>{p.nicho || '—'}</span>
                   <span className="text-xs font-semibold" style={{ color: 'var(--signalDeep)' }}>{p.telefone || '—'}</span>
+                  {temTel2 && <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{p.telefone2 || '—'}</span>}
                   <span className="text-xs" style={{ color: 'var(--muted)' }}>{p.ultimoContato ? fmtDDMM(p.ultimoContato) : '—'}</span>
                   <span>
                     <span className="prosp-pill" style={{ background: st.bg, color: venc ? '#DC2626' : st.color }}>
@@ -404,6 +414,8 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
               );
             })}
           </div>
+          );
+        })()}
         </div>
       )}
 
@@ -433,18 +445,24 @@ function ProspUpload({ prospectas, setProspectas }) {
       const text = await readCsvFile(file);
       const { records, dupBatch, skipped } = parseHurmaCsv(text);
       // Análise de todos os contatos: número inválido, repetido no arquivo ou já passado pelo sistema
-      const digitosNoApp = new Set(prospectas.map(p => firstPhoneDigits(p.telefone)).filter(Boolean));
+      // (qualquer um dos dois números conta para validar e para detectar repetição)
+      const digitosNoApp = new Set();
+      for (const p of prospectas) {
+        [firstPhoneDigits(p.telefone), firstPhoneDigits(p.telefone2)].forEach(d => d && digitosNoApp.add(d));
+      }
       const vistosNoArquivo = new Set();
       const novos = [];
       const invalidos = [];
       let dupDb = 0, dupFile = 0;
       for (const r of records) {
-        const d = firstPhoneDigits(r.telefone);
-        if (!d) { invalidos.push(r); continue; }                 // sem número discável
-        if (digitosNoApp.has(d)) { dupDb++; continue; }           // já passou pelo sistema
-        if (vistosNoArquivo.has(d)) { dupFile++; continue; }      // repetido dentro do arquivo
-        vistosNoArquivo.add(d);
-        novos.push(r);
+        let tel = r.telefone, tel2 = r.telefone2 || '';
+        if (!firstPhoneDigits(tel) && firstPhoneDigits(tel2)) { [tel, tel2] = [tel2, tel]; } // o principal precisa ser discável
+        const d1 = firstPhoneDigits(tel), d2 = firstPhoneDigits(tel2);
+        if (!d1) { invalidos.push(r); continue; }
+        if ((d1 && digitosNoApp.has(d1)) || (d2 && digitosNoApp.has(d2))) { dupDb++; continue; }
+        if ((d1 && vistosNoArquivo.has(d1)) || (d2 && vistosNoArquivo.has(d2))) { dupFile++; continue; }
+        vistosNoArquivo.add(d1); if (d2) vistosNoArquivo.add(d2);
+        novos.push({ ...r, telefone: tel, telefone2: tel2 });
       }
       if (novos.length === 0 && records.length === 0) {
         setErro('Nenhuma linha de dados encontrada. O arquivo precisa estar no formato da lista padrão (Empresa, Cidade, Nicho, Telefone, OBS, Contato em).');
@@ -517,17 +535,24 @@ function ProspUpload({ prospectas, setProspectas }) {
             </div>
 
             <div className="card" style={{ background: '#F8FAFC', boxShadow: 'none', padding: 0, overflow: 'hidden' }}>
-              <div className="meta-thead px-4 py-2.5 grid text-xs font-semibold" style={{ gridTemplateColumns: '1.6fr 100px 1fr 170px', gap: '8px' }}>
-                <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span>
-              </div>
-              {preview.records.slice(0, 8).map((r, i) => (
-                <div key={i} className="grid items-center px-4 py-2 text-xs" style={{ gridTemplateColumns: '1.6fr 100px 1fr 170px', gap: '8px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
-                  <span className="font-semibold truncate" style={{ color: 'var(--text)' }}>{r.empresa}</span>
-                  <span style={{ color: 'var(--muted)' }}>{r.cidade || '—'}</span>
-                  <span className="truncate" style={{ color: 'var(--muted)' }}>{r.nicho || '—'}</span>
-                  <span className="font-semibold" style={{ color: 'var(--signalDeep)' }}>{r.telefone || '—'}</span>
-                </div>
-              ))}
+              {(() => {
+                const temTel2 = preview.records.some(r => r.telefone2);
+                const cols = temTel2 ? '1.5fr 90px 1fr 150px 150px' : '1.6fr 100px 1fr 170px';
+                return (<>
+                  <div className="meta-thead prosp-leads-thead px-4 py-2.5 grid text-xs font-semibold" style={{ gridTemplateColumns: cols, gap: '8px' }}>
+                    <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span>{temTel2 && <span>Telefone 2</span>}
+                  </div>
+                  {preview.records.slice(0, 8).map((r, i) => (
+                    <div key={i} className="grid items-center px-4 py-2 text-xs" style={{ gridTemplateColumns: cols, gap: '8px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                      <span className="font-semibold truncate" style={{ color: 'var(--text)' }}>{r.empresa}</span>
+                      <span style={{ color: 'var(--muted)' }}>{r.cidade || '—'}</span>
+                      <span className="truncate" style={{ color: 'var(--muted)' }}>{r.nicho || '—'}</span>
+                      <span className="font-semibold" style={{ color: 'var(--signalDeep)' }}>{r.telefone || '—'}</span>
+                      {temTel2 && <span className="font-semibold" style={{ color: 'var(--muted)' }}>{r.telefone2 || '—'}</span>}
+                    </div>
+                  ))}
+                </>);
+              })()}
               {preview.records.length > 8 && (
                 <p className="text-xs px-4 py-2" style={{ color: 'var(--faint)' }}>+ {preview.records.length - 8} outros...</p>
               )}
@@ -726,8 +751,6 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
     );
   }
 
-  const telLink = `tel:+55${phoneDigits(atual.telefone)}`;
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -760,10 +783,19 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
               {atual.status === 'nao_atendeu' && atual.ultimoContato && <span className="text-xs font-bold" style={{ color: '#D97706' }}>não atendeu {fmtDDMM(atual.ultimoContato)} — nova tentativa</span>}
             </div>
           </div>
-          {atual.telefone && (
-            <a href={telLink} className="prosp-call-btn">
-              <PhoneCall size={18} /> {atual.telefone}
-            </a>
+          {(atual.telefone || atual.telefone2) && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch', flexShrink: 0 }}>
+              {atual.telefone && (
+                <a href={`tel:+55${phoneDigits(atual.telefone)}`} className="prosp-call-btn">
+                  <PhoneCall size={18} /> {atual.telefone}
+                </a>
+              )}
+              {atual.telefone2 && (
+                <a href={`tel:+55${phoneDigits(atual.telefone2)}`} className="prosp-call-btn alt">
+                  <PhoneCall size={15} /> {atual.telefone2}
+                </a>
+              )}
+            </div>
           )}
         </div>
 
