@@ -61,6 +61,7 @@ function mapCrmLead(r) {
     eventoId:      r.evento_id || null,
     observacoes:   r.observacoes || '',
     empresa:       r.empresa || 'Farilog',
+    fonte:         r.fonte || 'upload',
     criadoEm:      r.criado_em,
   };
 }
@@ -74,26 +75,27 @@ export async function fetchCrmLeads(empresa = null) {
   return data.map(mapCrmLead);
 }
 
-export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, ultimoContato, reuniaoData, reuniaoHora, eventoId, observacoes, empresa = 'Farilog' }) {
-  const { data, error } = await supabase
-    .from('crm_leads')
-    .insert({
-      nome_empresa:   nomeEmpresa,
-      contato:        contato || null,
-      telefone:       telefone || null,
-      cidade:         cidade || null,
-      quantidade:     quantidade || 0,
-      etapa:          etapa || 'novo',
-      tipo:           tipo || 'diaria',
-      ultimo_contato: ultimoContato || null,
-      reuniao_data:   reuniaoData || null,
-      reuniao_hora:   reuniaoHora || null,
-      evento_id:      eventoId || null,
-      observacoes:    observacoes || null,
-      empresa:        empresa || 'Farilog',
-    })
-    .select()
-    .single();
+export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, ultimoContato, reuniaoData, reuniaoHora, eventoId, observacoes, empresa = 'Farilog', fonte = 'upload' }) {
+  const base = {
+    nome_empresa:   nomeEmpresa,
+    contato:        contato || null,
+    telefone:       telefone || null,
+    cidade:         cidade || null,
+    quantidade:     quantidade || 0,
+    etapa:          etapa || 'novo',
+    tipo:           tipo || 'diaria',
+    ultimo_contato: ultimoContato || null,
+    reuniao_data:   reuniaoData || null,
+    reuniao_hora:   reuniaoHora || null,
+    evento_id:      eventoId || null,
+    observacoes:    observacoes || null,
+    empresa:        empresa || 'Farilog',
+  };
+  let { data, error } = await supabase.from('crm_leads').insert({ ...base, fonte: fonte || 'upload' }).select().single();
+  if (error) {
+    // coluna fonte ainda não criada no banco (migração pendente) → insere sem ela
+    ({ data, error } = await supabase.from('crm_leads').insert(base).select().single());
+  }
   if (error) { console.error('[db] createCrmLead:', error.message); return null; }
   return mapCrmLead(data);
 }
@@ -113,6 +115,7 @@ export async function updateCrmLead(id, patch) {
   if (patch.eventoId      !== undefined) p.evento_id      = patch.eventoId;
   if (patch.observacoes   !== undefined) p.observacoes    = patch.observacoes;
   if (patch.empresa       !== undefined) p.empresa        = patch.empresa;
+  if (patch.fonte          !== undefined) p.fonte          = patch.fonte;
   const { error } = await supabase.from('crm_leads').update(p).eq('id', id);
   if (error) { console.error('[db] updateCrmLead:', error.message); return false; }
   return true;
@@ -398,6 +401,7 @@ function mapCrmProspecta(r) {
     status:        r.status || 'novo',
     ultimoContato: r.ultimo_contato || '',
     retornoEm:     r.retorno_em || '',
+    fonte:         r.fonte || 'upload',
     criadoEm:      r.criado_em,
   };
 }
@@ -412,6 +416,8 @@ export async function fetchCrmProspectas() {
 }
 
 // Insere em lotes de 200 para não estourar o limite de requisição
+// Retorna { ok, ignorouFonte } — ignorouFonte=true significa que a coluna
+// 'fonte' ainda não existe no banco (Migração 4 do SQL pendente).
 export async function createCrmProspectasBulk(items) {
   const full = items.map(i => ({
     empresa:    i.empresa,
@@ -422,14 +428,34 @@ export async function createCrmProspectasBulk(items) {
     obs:        i.obs        || null,
     contato_em: i.contatoEm  || null,
     lista:      i.lista      || null,
+    fonte:      i.fonte      || 'upload',
   }));
-  const slim = full.map(({ telefone2, ...r }) => r); // banco sem a coluna (migração pendente)
+  // banco sem as colunas novas (migração pendente): reenvia sem elas
+  const slim = full.map(({ telefone2, fonte, ...r }) => r);
+  let ignorouFonte = false;
   for (let i = 0; i < full.length; i += 200) {
     let { error } = await supabase.from('crm_prospectas').insert(full.slice(i, i + 200));
-    if (error) ({ error } = await supabase.from('crm_prospectas').insert(slim.slice(i, i + 200)));
-    if (error) { console.error('[db] createCrmProspectasBulk:', error.message); return false; }
+    if (error && /fonte/.test(error.message)) {
+      ignorouFonte = true;
+      ({ error } = await supabase.from('crm_prospectas').insert(slim.slice(i, i + 200)));
+    }
+    if (error) { console.error('[db] createCrmProspectasBulk:', error.message); return { ok: false, ignorouFonte }; }
   }
-  return true;
+  return { ok: true, ignorouFonte };
+}
+
+// Detecta se a Migração 4 (coluna fonte) já foi aplicada no banco.
+// Útil para avisar o usuário que precisa rodar o SQL antes de confiar na fonte dos leads.
+export async function colunaFonteExiste() {
+  const { error } = await supabase
+    .from('crm_prospectas')
+    .insert({ empresa: '__probe_fonte__', telefone: '__probe__', fonte: 'upload' });
+  if (!error) {
+    // o insert com fonte funcionou → a coluna existe; apaga a linha de teste
+    await supabase.from('crm_prospectas').delete().eq('empresa', '__probe_fonte__');
+    return true;
+  }
+  return !/fonte/.test(error.message);
 }
 
 export async function updateCrmProspecta(id, patch) {

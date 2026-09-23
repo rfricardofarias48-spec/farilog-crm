@@ -1,16 +1,35 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   fetchCrmProspectas, createCrmProspectasBulk, updateCrmProspecta, deleteCrmProspecta,
-  createCrmLead, updateCrmLead, createCrmEvento,
+  createCrmLead, updateCrmLead, createCrmEvento, colunaFonteExiste,
 } from './lib/db';
 import { parseHurmaCsv, readCsvFile, phoneDigits, firstPhoneDigits } from './lib/hurmaCsv';
 import {
+  ACTORS, getActorId, getToken, setToken, setActorId,
+  testarToken, runScraper, abortarRun, inputPadrao, mapPlaceToProspect,
+} from './lib/apify';
+import {
   PhoneCall, Upload as UploadIcon, FileSpreadsheet, Search, X, Trash2,
   CalendarClock, CalendarDays, Check, ChevronRight, Phone, MapPin, Building2, PartyPopper,
-  SlidersHorizontal,
+  SlidersHorizontal, Radar, Loader2, StopCircle, Settings2, Link2,
 } from 'lucide-react';
 
 const TODAY_ISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+
+// ── Fonte do lead: de onde ele veio ──────────────────────────────────────────
+export const FONTES = {
+  apify:  { label: 'Apify',  color: '#2563EB', bg: '#EFF6FF' },
+  upload: { label: 'Upload', color: '#5C6B84', bg: '#F1F5F9' },
+};
+export const fonteInfo = (f) => FONTES[f] || FONTES.upload;
+export function FontePill({ fonte, size = 10 }) {
+  const f = fonteInfo(fonte);
+  return (
+    <span className="prosp-pill" style={{ background: f.bg, color: f.color, fontSize: size, padding: '2px 8px' }}>
+      {f.label}
+    </span>
+  );
+}
 
 // ── Status dos leads de prospecção ──────────────────────────────────────────
 const STATUS = {
@@ -59,6 +78,7 @@ async function moverParaPipeline(lead, empresaAtiva, extra = {}) {
     ultimoContato: TODAY_ISO,
     observacoes:   obs.join(' · '),
     empresa:       empresaAtiva || 'Farilog',
+    fonte:         lead.fonte || 'upload',
     ...extra,
   });
 }
@@ -143,9 +163,12 @@ function DonutStatus({ prospectas }) {
 }
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
-function Card({ icon: Icon, label, value, sub, tone = 'var(--signal)' }) {
+function Card({ icon: Icon, label, value, sub, tone = 'var(--signal)', destaque = false }) {
   return (
-    <div className="card" style={{ padding: '16px 18px' }}>
+    <div className="card" style={{
+      padding: '16px 18px',
+      ...(destaque ? { background: 'linear-gradient(135deg, #EFF6FF 0%, #F5F9FF 100%)', borderColor: 'rgba(37,99,235,0.35)' } : {}),
+    }}>
       <div className="flex items-center gap-2 mb-2">
         <Icon size={14} style={{ color: tone }} />
         <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{label}</p>
@@ -162,6 +185,10 @@ function ProspDashboard({ prospectas }) {
   const porStatus = (s) => prospectas.filter(p => p.status === s).length;
   const atendentes = contatadasHoje.filter(p => p.status === 'interessado' || p.status === 'sem_interesse' || p.status === 'retornar' || p.status === 'reuniao').length;
 
+  // Leads por fonte: quantos vieram do scraper da Apify e quantos de listas enviadas
+  const daApify = prospectas.filter(p => p.fonte === 'apify');
+  const pctApify = prospectas.length ? Math.round((daApify.length / prospectas.length) * 100) : 0;
+
   return (
     <div className="page-fill space-y-4">
       <div>
@@ -169,8 +196,9 @@ function ProspDashboard({ prospectas }) {
         <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Resumo das ligações e do funil de contatos</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         <Card icon={Building2}       label="Base de leads"     value={prospectas.length} sub="total importado" />
+        <Card icon={Radar}           label="Leads Apify"       value={daApify.length} sub={`${pctApify}% da base veio da Apify`} tone="#2563EB" destaque />
         <Card icon={PhoneCall}       label="Ligados hoje"      value={contatadasHoje.length} sub={`${atendentes} atenderam`} tone="#0891B2" />
         <Card icon={Check}           label="Interessados"      value={porStatus('interessado')} sub="para levar ao pipeline" tone="#059669" />
         <Card icon={X}               label="Sem interesse"     value={porStatus('sem_interesse')} sub="descartados" tone="#DC2626" />
@@ -242,6 +270,23 @@ function LeadEditModal({ lead, onClose, onSave, onDelete }) {
             </div>
           </div>
           <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Fonte</label>
+            <div className="flex gap-2">
+              {Object.entries(FONTES).map(([k, v]) => (
+                <button key={k} type="button" onClick={() => setForm(f => ({ ...f, fonte: k }))}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-all"
+                  style={{
+                    background:  (form.fonte || 'upload') === k ? v.bg : '#F8FAFC',
+                    borderColor: (form.fonte || 'upload') === k ? v.color : 'var(--line)',
+                    color:       (form.fonte || 'upload') === k ? v.color : 'var(--faint)',
+                    cursor: 'pointer',
+                  }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Nicho</label>
             <input className="input-field" value={form.nicho} onChange={e => setForm(f => ({ ...f, nicho: e.target.value }))} />
           </div>
@@ -287,6 +332,7 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
   const [fCidade, setFCidade] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [fLista, setFLista]   = useState('');
+  const [fFonte, setFFonte]   = useState('');
   const [somenteContatados, setSomenteContatados] = useState(true);
   const [popAberto, setPopAberto] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -294,15 +340,16 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
   const cidades = useMemo(() => [...new Set(prospectas.map(p => p.cidade).filter(Boolean))].sort(), [prospectas]);
   const listas  = useMemo(() => [...new Set(prospectas.map(p => p.lista).filter(Boolean))].sort(), [prospectas]);
 
-  const nFiltros = (busca ? 1 : 0) + (fCidade ? 1 : 0) + (fStatus ? 1 : 0) + (fLista ? 1 : 0);
-  const limparFiltros = () => { setBusca(''); setFCidade(''); setFStatus(''); setFLista(''); };
+  const nFiltros = (busca ? 1 : 0) + (fCidade ? 1 : 0) + (fStatus ? 1 : 0) + (fLista ? 1 : 0) + (fFonte ? 1 : 0);
+  const limparFiltros = () => { setBusca(''); setFCidade(''); setFStatus(''); setFLista(''); setFFonte(''); };
 
   const filtrados = prospectas.filter(p =>
     (!somenteContatados || p.status !== 'novo') &&
     (!busca   || `${p.empresa} ${p.nicho} ${p.telefone}`.toLowerCase().includes(busca.toLowerCase())) &&
     (!fCidade || p.cidade === fCidade) &&
     (!fStatus || p.status === fStatus) &&
-    (!fLista  || p.lista === fLista)
+    (!fLista  || p.lista === fLista) &&
+    (!fFonte  || p.fonte === fFonte)
   );
 
   const handleSave = async (form) => {
@@ -357,6 +404,10 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
                   <option value="">Todas as listas</option>
                   {listas.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
+                <select className="input-field" style={selStyle} value={fFonte} onChange={e => setFFonte(e.target.value)}>
+                  <option value="">Todas as fontes</option>
+                  {Object.entries(FONTES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
                 <label className="prosp-filter-toggle">
                   <input type="checkbox" checked={somenteContatados} onChange={e => setSomenteContatados(e.target.checked)} />
                   Mostrar apenas já contatados
@@ -385,11 +436,11 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
         <div className="card overflow-hidden scroll-x">
           {(() => {
             const temTel2 = filtrados.some(p => p.telefone2);
-            const cols = temTel2 ? '1.5fr 100px 1fr 160px 160px 85px 125px 105px' : '1.6fr 110px 1fr 190px 90px 130px 110px';
+            const cols = temTel2 ? '1.5fr 100px 1fr 160px 150px 85px 125px 78px 105px' : '1.6fr 110px 1fr 180px 90px 125px 110px 78px';
             return (
-          <div style={{ minWidth: temTel2 ? 950 : 860 }}>
+          <div style={{ minWidth: temTel2 ? 1040 : 950 }}>
             <div className="meta-thead prosp-leads-thead px-5 py-3 grid text-xs font-semibold" style={{ gridTemplateColumns: cols, gap: '8px' }}>
-              <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span>{temTel2 && <span>Telefone 2</span>}<span>Últ. contato</span><span>Status</span><span>Lista</span>
+              <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span>{temTel2 && <span>Telefone 2</span>}<span>Últ. contato</span><span>Status</span><span>Fonte</span><span>Lista</span>
             </div>
             {filtrados.map((p, idx) => {
               const st = statusInfo(p.status);
@@ -409,6 +460,7 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
                       {st.label}{p.status === 'retornar' && p.retornoEm ? ` ${fmtDDMM(p.retornoEm)}` : ''}
                     </span>
                   </span>
+                  <span><FontePill fonte={p.fonte} /></span>
                   <span className="text-xs truncate" style={{ color: 'var(--faint)' }}>{p.lista || '—'}</span>
                 </div>
               );
@@ -422,6 +474,299 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
       {editando && (
         <LeadEditModal lead={editando} onClose={() => setEditando(null)} onSave={handleSave} onDelete={handleDelete} />
       )}
+    </div>
+  );
+}
+
+// ── Apify: busca de leads qualificados no Google Maps ────────────────────────
+
+function ProspApify({ prospectas, setProspectas }) {
+  const [termos, setTermos]       = useState('transportadora\nlogística');
+  const [cidade, setCidade]       = useState('');
+  const [maxPorBusca, setMax]     = useState(30);
+  const [actorId, setActor]       = useState(getActorId());
+  const [status, setStatus]       = useState('');
+  const [encontrados, setEncontrados] = useState(0);
+  const [rodando, setRodando]     = useState(false);
+  const [preview, setPreview]     = useState(null); // { records, dupDb, invalidos, fechados, cidades }
+  const [erro, setErro]           = useState('');
+  const [msg, setMsg]             = useState('');
+  const [importando, setImportando] = useState(false);
+  const [configAberto, setConfigAberto] = useState(false);
+  const [tokenInput, setTokenInput] = useState(getToken());
+  const [testeToken, setTesteToken] = useState(null);
+  const [migracaoPendente, setMigracaoPendente] = useState(false);
+  const abortRef = useRef(null);
+  const actorNome = (ACTORS.find(a => a.id === actorId) || ACTORS[0]).label;
+
+  // Avisa se a coluna 'fonte' ainda não existe no banco (Migração 4 do SQL pendente).
+  // Sem ela os leads importados entram, mas não ficam marcados como vindos da Apify.
+  useEffect(() => {
+    colunaFonteExiste().then(existe => setMigracaoPendente(!existe));
+  }, []);
+
+  // Pré-busca: mostra quantos leads daquela cidade já existem na base
+  const cidadesBase = useMemo(
+    () => [...new Set(prospectas.map(p => p.cidade).filter(Boolean))].sort(),
+    [prospectas],
+  );
+
+  const handleActor = (id) => { setActor(id); setActorId(id); };
+
+  const salvarToken = async () => {
+    setToken(tokenInput);
+    setTesteToken(null);
+    const r = await testarToken(tokenInput);
+    setTesteToken(r);
+    if (r.ok) setErro('');
+  };
+
+  const buscar = async () => {
+    const searchStringsArray = termos.split('\n').map(t => t.trim()).filter(Boolean);
+    if (!searchStringsArray.length || !cidade.trim()) {
+      setErro('Preencha a cidade e ao menos um termo de busca (um por linha).');
+      return;
+    }
+    setErro(''); setMsg(''); setPreview(null); setEncontrados(0);
+    setRodando(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      const { items } = await runScraper({
+        actorId,
+        input: inputPadrao({ searchStringsArray, locationQuery: cidade.trim(), maxCrawledPlacesPerSearch: maxPorBusca }),
+        onStatus: (s, n) => { setStatus(s); setEncontrados(n); },
+        signal: controller.signal,
+      });
+
+      // Mesma análise de duplicidade do upload de CSV: qualquer número que já
+      // exista na base descarta o lugar, e lugares sem telefone discável também
+      const digitosNoApp = new Set();
+      for (const p of prospectas) {
+        [firstPhoneDigits(p.telefone), firstPhoneDigits(p.telefone2)].forEach(d => d && digitosNoApp.add(d));
+      }
+      const vistos = new Set();
+      const novos = [], invalidos = [], fechados = [];
+      let dupDb = 0, dupLote = 0;
+      for (const place of items) {
+        if (place.permanentlyClosed || place.temporarilyClosed) { fechados.push(place); continue; }
+        const rec = mapPlaceToProspect(place);
+        if (!rec.empresa) continue;
+        const d1 = firstPhoneDigits(rec.telefone), d2 = firstPhoneDigits(rec.telefone2);
+        if (!d1) { invalidos.push(rec); continue; }
+        if ((d1 && digitosNoApp.has(d1)) || (d2 && digitosNoApp.has(d2))) { dupDb++; continue; }
+        if ((d1 && vistos.has(d1)) || (d2 && vistos.has(d2))) { dupLote++; continue; }
+        vistos.add(d1); if (d2) vistos.add(d2);
+        novos.push(rec);
+      }
+      if (!novos.length && !items.length) {
+        setErro('A busca não encontrou lugares. Tente outros termos ou uma cidade maior.');
+        setRodando(false); return;
+      }
+      setPreview({ records: novos, dupDb, dupLote, invalidos, fechados });
+      setStatus('');
+    } catch (e) {
+      if (e.name === 'AbortError') setStatus('');
+      else setErro(`Não foi possível concluir a busca: ${e.message}`);
+    }
+    setRodando(false);
+    abortRef.current = null;
+  };
+
+  const cancelar = async () => {
+    if (abortRef.current) abortRef.current.abort();
+    setRodando(false); setStatus('');
+    setMsg('Busca cancelada.');
+  };
+
+  const listaNome = preview ? `Apify — ${cidade.trim()}` : '';
+
+  const handleImport = async () => {
+    if (!preview) return;
+    setImportando(true); setErro('');
+    const res = await createCrmProspectasBulk(preview.records.map(r => ({ ...r, lista: listaNome })));
+    setImportando(false);
+    if (!res.ok) { setErro('Falha ao importar. Verifique sua conexão e se a tabela crm_prospectas foi criada no Supabase.'); return; }
+    const atualizadas = await fetchCrmProspectas();
+    setProspectas(atualizadas);
+    if (res.ignorouFonte) {
+      setMsg(`${preview.records.length} leads importados — mas a coluna "fonte" ainda não existe no banco. Execute a Migração 4 no SQL do Supabase para que eles constem como vindos da Apify.`);
+      setMigracaoPendente(true);
+    } else {
+      setMsg(`${preview.records.length} leads da Apify importados da lista "${listaNome}".`);
+    }
+    setPreview(null);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--text)' }}>
+            <Radar size={17} style={{ color: 'var(--signal)' }} /> Apify — Leads do Google Maps
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+            Busca empresas por nicho e cidade no Google Maps. Os leads importados ficam marcados como fonte <b>Apify</b>.
+          </p>
+        </div>
+        <button className="btn-ghost flex items-center gap-1.5" onClick={() => setConfigAberto(v => !v)}>
+          <Settings2 size={13} /> Configurações da API
+        </button>
+      </div>
+
+      {migracaoPendente && (
+        <div className="card" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', boxShadow: 'none', padding: '13px 18px' }}>
+          <p className="text-xs font-bold" style={{ color: '#B45309' }}>Migração 4 pendente no Supabase</p>
+          <p className="text-xs mt-1" style={{ color: '#92400E' }}>
+            A coluna <b>fonte</b> ainda não existe no banco. Os leads importados agora entram na base, mas não
+            ficam marcados como "Apify" até você rodar a <b>Migração 4</b> (final do arquivo
+            <b> supabase_novo_banco.sql</b>) no SQL Editor do Supabase. Depois de rodar, os próximos imports já
+            saem com a fonte correta.
+          </p>
+        </div>
+      )}
+
+      {configAberto && (
+        <div className="card" style={{ padding: 20 }}>
+          <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Token da API Apify</label>
+          <div className="flex gap-2">
+            <input className="input-field" value={tokenInput} onChange={e => { setTokenInput(e.target.value); setTesteToken(null); }}
+              placeholder="apify_api_..." style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }} />
+            <button className="btn-primary whitespace-nowrap" onClick={salvarToken}>Salvar e testar</button>
+          </div>
+          {testeToken && (
+            <p className="text-xs font-semibold mt-2" style={{ color: testeToken.ok ? 'var(--ok)' : 'var(--danger)' }}>
+              {testeToken.ok ? 'Token válido — conexão com o Apify funcionando.' : `Token recusado: ${testeToken.erro}`}
+            </p>
+          )}
+          <div className="mt-4">
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Scraper utilizado</label>
+            <div className="flex gap-2 flex-wrap">
+              {ACTORS.map(a => (
+                <button key={a.id} type="button" onClick={() => handleActor(a.id)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold border transition-all"
+                  style={{
+                    background:  actorId === a.id ? 'var(--signalSoft)' : '#F8FAFC',
+                    borderColor: actorId === a.id ? 'var(--signal)' : 'var(--line)',
+                    color:       actorId === a.id ? 'var(--signalDeep)' : 'var(--faint)',
+                    cursor: 'pointer',
+                  }}>
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="card" style={{ padding: 24 }}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>
+              Termos de busca (um por linha) *
+            </label>
+            <textarea className="input-field" rows={3} value={termos} onChange={e => setTermos(e.target.value)}
+              placeholder="transportadora&#10;logística&#10;caminhão" style={{ resize: 'none' }} />
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Cidade / região *</label>
+              <input className="input-field" value={cidade} onChange={e => setCidade(e.target.value)}
+                placeholder="Cachoeirinha" list="apify-cidades" />
+              <datalist id="apify-cidades">
+                {cidadesBase.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Máx. por termo</label>
+              <input type="number" min="1" max="200" className="input-field" value={maxPorBusca}
+                onChange={e => setMax(Number(e.target.value) || 30)} />
+            </div>
+          </div>
+        </div>
+
+        {erro && <p className="text-xs font-semibold mt-4" style={{ color: '#DC2626' }}>{erro}</p>}
+        {msg && <p className="text-xs font-semibold mt-4" style={{ color: 'var(--ok)' }}>{msg}</p>}
+
+        {rodando ? (
+          <div className="mt-5 card" style={{ background: 'var(--signalSoft)', border: '1px solid rgba(37,99,235,0.25)', boxShadow: 'none', padding: '16px 18px' }}>
+            <div className="flex items-center gap-3">
+              <Loader2 size={18} className="animate-spin" style={{ color: 'var(--signal)' }} />
+              <div className="flex-1">
+                <p className="text-sm font-bold" style={{ color: 'var(--signalDeep)' }}>Buscando leads — {actorNome}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+                  {status || 'Aguardando...'}{encontrados > 0 ? ` · ${encontrados} lugares encontrados` : ''}
+                </p>
+              </div>
+              <button className="btn-danger flex items-center gap-1.5" onClick={cancelar}>
+                <StopCircle size={13} /> Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 mt-5">
+            <button className="btn-accent flex items-center gap-1.5" onClick={buscar}
+              disabled={!termos.trim() || !cidade.trim()}>
+              <Radar size={14} /> Buscar leads
+            </button>
+            <span className="text-xs" style={{ color: 'var(--faint)' }}>
+              {actorNome} · {termos.split('\n').map(t => t.trim()).filter(Boolean).length} termo(s)
+            </span>
+          </div>
+        )}
+
+        {preview && (
+          <div className="mt-5 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="prosp-stat" style={{ borderColor: 'var(--signal)' }}>
+                <p className="prosp-stat-num" style={{ color: 'var(--signalDeep)' }}>{preview.records.length}</p>
+                <p className="prosp-stat-label">novos para importar</p>
+              </div>
+              <div className="prosp-stat"><p className="prosp-stat-num" style={{ color: '#7C3AED' }}>{preview.dupDb}</p><p className="prosp-stat-label">já estão na base</p></div>
+              <div className="prosp-stat"><p className="prosp-stat-num" style={{ color: '#D97706' }}>{preview.dupLote}</p><p className="prosp-stat-label">repetidos na busca</p></div>
+              <div className="prosp-stat"><p className="prosp-stat-num" style={{ color: '#DC2626' }}>{preview.invalidos.length}</p><p className="prosp-stat-label">sem telefone válido</p></div>
+            </div>
+
+            {preview.invalidos.length > 0 && (
+              <div className="card" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', boxShadow: 'none', padding: '10px 14px' }}>
+                <p className="text-xs font-bold mb-1" style={{ color: '#D97706' }}>
+                  {preview.invalidos.length} lugar(es) sem telefone discável (foram descartados):
+                </p>
+                <p className="text-xs" style={{ color: '#B45309' }}>
+                  {preview.invalidos.slice(0, 6).map(r => r.empresa).join(' · ')}
+                  {preview.invalidos.length > 6 && ` · +${preview.invalidos.length - 6} outros`}
+                </p>
+              </div>
+            )}
+
+            <div className="card" style={{ background: '#F8FAFC', boxShadow: 'none', padding: 0, overflow: 'hidden' }}>
+              <div className="meta-thead prosp-leads-thead px-4 py-2.5 grid text-xs font-semibold" style={{ gridTemplateColumns: '1.6fr 100px 1.2fr 160px 110px', gap: '8px' }}>
+                <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span><span>Fonte</span>
+              </div>
+              {preview.records.slice(0, 8).map((r, i) => (
+                <div key={i} className="grid items-center px-4 py-2 text-xs" style={{ gridTemplateColumns: '1.6fr 100px 1.2fr 160px 110px', gap: '8px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                  <span className="font-semibold truncate" style={{ color: 'var(--text)' }}>{r.empresa}</span>
+                  <span style={{ color: 'var(--muted)' }}>{r.cidade || '—'}</span>
+                  <span className="truncate" style={{ color: 'var(--muted)' }}>{r.nicho || '—'}</span>
+                  <span className="font-semibold" style={{ color: 'var(--signalDeep)' }}>{r.telefone || '—'}</span>
+                  <span><FontePill fonte="apify" /></span>
+                </div>
+              ))}
+              {preview.records.length > 8 && (
+                <p className="text-xs px-4 py-2" style={{ color: 'var(--faint)' }}>+ {preview.records.length - 8} outros...</p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1" />
+              <button className="btn-ghost" onClick={() => setPreview(null)}>Descartar</button>
+              <button className="btn-primary flex items-center gap-1.5" disabled={importando || preview.records.length === 0} onClick={handleImport}>
+                <Link2 size={14} /> {importando ? 'Importando...' : `Importar ${preview.records.length} leads`}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -853,6 +1198,7 @@ export default function ProspeccaoModule({ sub = 'dashboard', empresaAtiva = nul
     <>
       {sub === 'dashboard' && <ProspDashboard prospectas={prospectas} />}
       {sub === 'leads'     && <ProspLeads prospectas={prospectas} setProspectas={setProspectas} empresaAtiva={empresaAtiva} />}
+      {sub === 'apify'     && <ProspApify prospectas={prospectas} setProspectas={setProspectas} />}
       {sub === 'upload'    && <ProspUpload prospectas={prospectas} setProspectas={setProspectas} />}
       {sub === 'fluxo'     && <ProspFluxo prospectas={prospectas} setProspectas={setProspectas} empresaAtiva={empresaAtiva} />}
     </>

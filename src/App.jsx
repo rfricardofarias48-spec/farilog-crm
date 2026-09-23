@@ -7,7 +7,7 @@ import {
 } from './lib/db';
 import TarefasModule from './Tarefas';
 import MetasModule from './Metas';
-import ProspeccaoModule from './Prospeccao';
+import ProspeccaoModule, { FONTES } from './Prospeccao';
 import {
   Plus, X, Trash2, ChevronLeft, ChevronRight,
   CalendarDays, Lock, LogOut, Users, MapPin, Zap,
@@ -286,7 +286,7 @@ function EmpresaPicker({ empresaAtiva, onPick, onClose }) {
 function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete, empresaAtiva }) {
   const [form, setForm] = useState(initial || {
     nomeEmpresa: '', contato: '', telefone: '', cidade: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', ultimoContato: '',
-    reuniaoData: '', reuniaoHora: '09:00', observacoes: '',
+    reuniaoData: '', reuniaoHora: '09:00', observacoes: '', fonte: 'upload',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
@@ -388,6 +388,23 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete, empresaAt
             </div>
           </div>
           <div>
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: C.muted }}>Fonte</label>
+            <div className="flex gap-2">
+              {FONTES.map(f => (
+                <button key={f.key} type="button" onClick={() => setForm(fr => ({ ...fr, fonte: f.key }))}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-all"
+                  style={{
+                    background:  form.fonte === f.key ? f.bg : '#F8FAFC',
+                    borderColor: form.fonte === f.key ? f.color : C.line,
+                    color:       form.fonte === f.key ? f.color : C.faint,
+                    cursor: 'pointer',
+                  }}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className="text-xs font-semibold mb-1 block" style={{ color: C.muted }}>Observações</label>
             <textarea className="input-field" rows={3} value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} placeholder="Detalhes do lead..." style={{ resize: 'none' }} />
           </div>
@@ -415,6 +432,7 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete, empresaAt
 // ── Card de Lead (arrastável) ──────────────────────────────────────────────
 function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
   const tInfo = tipoInfo(lead.tipo);
+  const fInfo = FONTES[lead.fonte] || FONTES.upload;
   return (
     <div
       draggable
@@ -428,10 +446,15 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
         borderLeft: `3px solid ${tInfo.color}`,
       }}
     >
-      <p className="text-sm font-bold" style={T}>
-        {lead.contato ? lead.contato : lead.nomeEmpresa}
-        {lead.contato && <span style={{ fontWeight: 500, color: C.faint }}> ({lead.nomeEmpresa})</span>}
-      </p>
+      <div className="flex items-center gap-1.5">
+        <p className="text-sm font-bold flex-1 truncate" style={T}>
+          {lead.contato ? lead.contato : lead.nomeEmpresa}
+          {lead.contato && <span style={{ fontWeight: 500, color: C.faint }}> ({lead.nomeEmpresa})</span>}
+        </p>
+        <span className="prosp-pill" style={{ background: fInfo.bg, color: fInfo.color, padding: '2px 7px' }} title={`Fonte: ${fInfo.label}`}>
+          {fInfo.label}
+        </span>
+      </div>
       {lead.ultimoContato && (
         <p className="text-xs mt-1" style={{ color: C.muted }}>
           ({formatDDMM(lead.ultimoContato)})
@@ -1069,6 +1092,7 @@ const NAV = [
       { key: 'carteira', label: 'Carteira de Clientes' },
       { key: 'prosp_dashboard', label: 'Dashboard',           grupo: 'Prospecção' },
       { key: 'prosp_leads',     label: 'Leads' },
+      { key: 'prosp_apify',     label: 'Apify' },
       { key: 'prosp_upload',    label: 'Upload de Listas' },
       { key: 'prosp_fluxo',     label: 'Prospecção Ativa' },
     ],

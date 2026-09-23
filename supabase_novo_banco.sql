@@ -253,3 +253,14 @@ UPDATE crm_metas   SET empresa = 'Hurma' WHERE empresa IS NULL;
 -- Execute no SQL Editor do Supabase. Seguro rodar de novo.
 -- ============================================================================
 ALTER TABLE crm_prospectas ADD COLUMN IF NOT EXISTS telefone2 TEXT;
+
+-- ============================================================================
+-- MIGRAÇÃO 4 (23/09/2026): Fonte de origem dos leads — 'apify' ou 'upload'.
+-- Todo lead que entra no app registra de onde veio (scraper da Apify ou lista
+-- importada manualmente). Registros antigos ficam marcados como 'upload'.
+-- Execute no SQL Editor do Supabase. Seguro rodar de novo.
+-- ============================================================================
+ALTER TABLE crm_prospectas ADD COLUMN IF NOT EXISTS fonte TEXT NOT NULL DEFAULT 'upload';
+ALTER TABLE crm_leads      ADD COLUMN IF NOT EXISTS fonte TEXT NOT NULL DEFAULT 'upload';
+CREATE INDEX IF NOT EXISTS idx_crm_prospectas_fonte ON crm_prospectas(fonte);
+CREATE INDEX IF NOT EXISTS idx_crm_leads_fonte      ON crm_leads(fonte);
