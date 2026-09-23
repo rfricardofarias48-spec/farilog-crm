@@ -588,6 +588,22 @@ select.input-field option { background: #fff; color: var(--text); }
 }
 .prosp-status-btn svg { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18)); }
 
+/* KPIs do dashboard: clicáveis, abrem a caixa com os leads da classificação */
+.prosp-kpi-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.prosp-kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--signal);
+  box-shadow: 0 6px 20px rgba(16, 27, 47, 0.10), 0 12px 32px rgba(37, 99, 235, 0.12);
+}
+.prosp-kpi-card:active { transform: translateY(0); }
+
+/* Caixa aberta ao clicar num KPI — lista os leads daquela classificação */
+.prosp-caixa { max-width: 980px; padding: 22px 24px; }
+.prosp-caixa-dot { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; }
+
 /* Gráfico de barras — ligações por dia */
 .prosp-chart-card {
   display: flex;

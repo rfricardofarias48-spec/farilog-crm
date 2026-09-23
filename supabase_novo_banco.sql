@@ -264,3 +264,15 @@ ALTER TABLE crm_prospectas ADD COLUMN IF NOT EXISTS fonte TEXT NOT NULL DEFAULT 
 ALTER TABLE crm_leads      ADD COLUMN IF NOT EXISTS fonte TEXT NOT NULL DEFAULT 'upload';
 CREATE INDEX IF NOT EXISTS idx_crm_prospectas_fonte ON crm_prospectas(fonte);
 CREATE INDEX IF NOT EXISTS idx_crm_leads_fonte      ON crm_leads(fonte);
+
+-- ============================================================================
+-- MIGRAÇÃO 5 (23/09/2026): Prospectador responsável por cada lead.
+-- Ao entrar na Prospecção Ativa o app pergunta quem vai prospectar (Ana ou
+-- Ricardo); o lead fica registrado com esse responsável e deixa de aparecer na
+-- fila do outro — ninguém prospecta o mesmo lead duas vezes.
+-- Execute no SQL Editor do Supabase. Seguro rodar de novo.
+-- ============================================================================
+ALTER TABLE crm_prospectas ADD COLUMN IF NOT EXISTS prospectador TEXT;
+ALTER TABLE crm_leads      ADD COLUMN IF NOT EXISTS prospectador TEXT;
+CREATE INDEX IF NOT EXISTS idx_crm_prospectas_prospectador ON crm_prospectas(prospectador);
+CREATE INDEX IF NOT EXISTS idx_crm_leads_prospectador      ON crm_leads(prospectador);

@@ -11,7 +11,7 @@ import {
 import {
   PhoneCall, Upload as UploadIcon, FileSpreadsheet, Search, X, Trash2,
   CalendarClock, CalendarDays, Check, ChevronRight, Phone, MapPin, Building2, PartyPopper,
-  SlidersHorizontal, Radar, Loader2, StopCircle, Settings2, Link2,
+  SlidersHorizontal, Radar, Loader2, StopCircle, Settings2, Link2, Users,
 } from 'lucide-react';
 
 const TODAY_ISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -31,6 +31,25 @@ export function FontePill({ fonte, size = 10 }) {
   );
 }
 
+// ── Quem está prospectando ───────────────────────────────────────────────────
+// Cada lead fica com no máximo UM prospectador. Quem o atende primeiro registra
+// o nome; a partir daí ele sai da fila do outro (filtro em naFila) — assim um
+// lead nunca é prospectado pela Ana e pelo Ricardo ao mesmo tempo.
+export const PROSPECTADORES = [
+  { key: 'ana',     label: 'Ana',     color: '#7C3AED', bg: '#F5F3FF' },
+  { key: 'ricardo', label: 'Ricardo', color: '#0891B2', bg: '#ECFEFF' },
+];
+export const prospectadorInfo = (k) => PROSPECTADORES.find(p => p.key === k) || null;
+export function ProspectadorPill({ prospectador, size = 10 }) {
+  const p = prospectadorInfo(prospectador);
+  if (!p) return <span className="text-xs" style={{ color: 'var(--faint)' }}>—</span>;
+  return (
+    <span className="prosp-pill" style={{ background: p.bg, color: p.color, fontSize: size, padding: '2px 8px' }}>
+      {p.label}
+    </span>
+  );
+}
+
 // ── Status dos leads de prospecção ──────────────────────────────────────────
 const STATUS = {
   novo:          { label: 'A contatar',      color: '#64748B', bg: '#F1F5F9' },
@@ -43,11 +62,15 @@ const STATUS = {
 const statusInfo = (s) => STATUS[s] || STATUS.novo;
 
 // Contatos na fila de prospecção: novos, "retornar em" vencido e "não atendeu" de dias
-// anteriores — quem não atendeu hoje volta automaticamente para a fila no dia seguinte
-const naFila = (p) =>
-  p.status === 'novo'
-  || (p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= TODAY_ISO))
-  || (p.status === 'nao_atendeu' && p.ultimoContato && p.ultimoContato < TODAY_ISO);
+// anteriores — quem não atendeu hoje volta automaticamente para a fila no dia seguinte.
+// Se `prospectador` for informado, leads que já estão com o OUTRO prospectador são
+// removidos da fila: ninguém prospecta o mesmo lead que o colega.
+const naFila = (p, prospectador = null) => {
+  if (prospectador && p.prospectador && p.prospectador !== prospectador) return false;
+  return p.status === 'novo'
+    || (p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= TODAY_ISO))
+    || (p.status === 'nao_atendeu' && p.ultimoContato && p.ultimoContato < TODAY_ISO);
+};
 
 function fmtDDMM(iso) {
   if (!iso) return '—';
@@ -163,12 +186,14 @@ function DonutStatus({ prospectas }) {
 }
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
-function Card({ icon: Icon, label, value, sub, tone = 'var(--signal)', destaque = false }) {
+function Card({ icon: Icon, label, value, sub, tone = 'var(--signal)', destaque = false, onClick }) {
   return (
-    <div className="card" style={{
-      padding: '16px 18px',
-      ...(destaque ? { background: 'linear-gradient(135deg, #EFF6FF 0%, #F5F9FF 100%)', borderColor: 'rgba(37,99,235,0.35)' } : {}),
-    }}>
+    <div className={`card ${onClick ? 'prosp-kpi-card' : ''}`} role={onClick ? 'button' : undefined}
+      onClick={onClick} title={onClick ? 'Ver os leads desta classificação' : undefined}
+      style={{
+        padding: '16px 18px',
+        ...(destaque ? { background: 'linear-gradient(135deg, #EFF6FF 0%, #F5F9FF 100%)', borderColor: 'rgba(37,99,235,0.35)' } : {}),
+      }}>
       <div className="flex items-center gap-2 mb-2">
         <Icon size={14} style={{ color: tone }} />
         <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{label}</p>
@@ -181,29 +206,66 @@ function Card({ icon: Icon, label, value, sub, tone = 'var(--signal)', destaque 
 
 function ProspDashboard({ prospectas }) {
   const hoje = TODAY_ISO;
-  const contatadasHoje = prospectas.filter(p => p.ultimoContato === hoje);
-  const porStatus = (s) => prospectas.filter(p => p.status === s).length;
+  // Filtro por prospectador: "geral" mostra todos, ou só os leads de Ana/Ricardo.
+  const [visao, setVisao] = useState('geral');
+  const base = useMemo(
+    () => (visao === 'geral' ? prospectas : prospectas.filter(p => p.prospectador === visao)),
+    [prospectas, visao],
+  );
+
+  const contatadasHoje = base.filter(p => p.ultimoContato === hoje);
+  const porStatus = (s) => base.filter(p => p.status === s).length;
   const atendentes = contatadasHoje.filter(p => p.status === 'interessado' || p.status === 'sem_interesse' || p.status === 'retornar' || p.status === 'reuniao').length;
 
   // Leads por fonte: quantos vieram do scraper da Apify e quantos de listas enviadas
-  const daApify = prospectas.filter(p => p.fonte === 'apify');
-  const pctApify = prospectas.length ? Math.round((daApify.length / prospectas.length) * 100) : 0;
+  const daApify = base.filter(p => p.fonte === 'apify');
+  const pctApify = base.length ? Math.round((daApify.length / base.length) * 100) : 0;
+
+  // Caixa aberta ao clicar num card: mostra todos os leads daquela classificação
+  const [caixa, setCaixa] = useState(null);
+
+  const KPI = {
+    base:        { titulo: 'Base de leads',  leads: base,         cor: 'var(--signal)' },
+    apify:       { titulo: 'Leads da Apify', leads: daApify,      cor: '#2563EB' },
+    ligadosHoje: { titulo: 'Ligados hoje',   leads: contatadasHoje, cor: '#0891B2' },
+    interessado: { titulo: 'Interessados',   leads: base.filter(p => p.status === 'interessado'),  cor: '#059669' },
+    sem_interesse: { titulo: 'Sem interesse', leads: base.filter(p => p.status === 'sem_interesse'), cor: '#DC2626' },
+    nao_atendeu: { titulo: 'Não atendeu',    leads: base.filter(p => p.status === 'nao_atendeu'),  cor: '#D97706' },
+    novo:        { titulo: 'A contatar',     leads: base.filter(p => p.status === 'novo'),        cor: '#64748B' },
+  };
+  const abrir = (k) => setCaixa({ chave: k, ...KPI[k] });
 
   return (
     <div className="page-fill space-y-4">
-      <div>
-        <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Dashboard de Prospecção</h2>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Resumo das ligações e do funil de contatos</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Dashboard de Prospecção</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+            {visao === 'geral'
+              ? 'Resumo das ligações e do funil de contatos — clique num card para ver os leads'
+              : `Números de ${visao === 'ana' ? 'Ana' : 'Ricardo'} — apenas os leads prospectados por ele(a)`}
+          </p>
+        </div>
+        <div className="subtabs">
+          <button className={`subtab ${visao === 'geral' ? 'active' : ''}`} onClick={() => setVisao('geral')}>
+            <Users size={12} /> Geral
+          </button>
+          {PROSPECTADORES.map(p => (
+            <button key={p.key} className={`subtab ${visao === p.key ? 'active' : ''}`} onClick={() => setVisao(p.key)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-        <Card icon={Building2}       label="Base de leads"     value={prospectas.length} sub="total importado" />
-        <Card icon={Radar}           label="Leads Apify"       value={daApify.length} sub={`${pctApify}% da base veio da Apify`} tone="#2563EB" destaque />
-        <Card icon={PhoneCall}       label="Ligados hoje"      value={contatadasHoje.length} sub={`${atendentes} atenderam`} tone="#0891B2" />
-        <Card icon={Check}           label="Interessados"      value={porStatus('interessado')} sub="para levar ao pipeline" tone="#059669" />
-        <Card icon={X}               label="Sem interesse"     value={porStatus('sem_interesse')} sub="descartados" tone="#DC2626" />
-        <Card icon={Phone}           label="Não atendeu"       value={porStatus('nao_atendeu')} sub="tentar de novo depois" tone="#D97706" />
-        <Card icon={CalendarClock}   label="A contatar"        value={porStatus('novo')} sub="nunca ligados" tone="#64748B" />
+        <Card icon={Building2}     label="Base de leads"  value={base.length} sub={visao === 'geral' ? 'total importado' : `prospectados por ${visao === 'ana' ? 'Ana' : 'Ricardo'}`} onClick={() => abrir('base')} />
+        <Card icon={Radar}         label="Leads Apify"    value={daApify.length} sub={`${pctApify}% da base veio da Apify`} tone="#2563EB" destaque onClick={() => abrir('apify')} />
+        <Card icon={PhoneCall}     label="Ligados hoje"   value={contatadasHoje.length} sub={`${atendentes} atenderam`} tone="#0891B2" onClick={() => abrir('ligadosHoje')} />
+        <Card icon={Check}         label="Interessados"   value={porStatus('interessado')} sub="para levar ao pipeline" tone="#059669" onClick={() => abrir('interessado')} />
+        <Card icon={X}             label="Sem interesse"  value={porStatus('sem_interesse')} sub="descartados" tone="#DC2626" onClick={() => abrir('sem_interesse')} />
+        <Card icon={Phone}         label="Não atendeu"    value={porStatus('nao_atendeu')} sub="tentar de novo depois" tone="#D97706" onClick={() => abrir('nao_atendeu')} />
+        <Card icon={CalendarClock} label="A contatar"     value={porStatus('novo')} sub="nunca ligados" tone="#64748B" onClick={() => abrir('novo')} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3" style={{ flex: 1, minHeight: 0, maxHeight: 430 }}>
@@ -211,15 +273,98 @@ function ProspDashboard({ prospectas }) {
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>Ligações — últimos 14 dias</p>
             <span className="text-xs font-semibold" style={{ color: 'var(--faint)' }}>
-              {prospectas.filter(p => p.ultimoContato >= isoAddDays(TODAY_ISO, -13)).length} no período
+              {base.filter(p => p.ultimoContato >= isoAddDays(TODAY_ISO, -13)).length} no período
             </span>
           </div>
-          <BarChartLigacoes prospectas={prospectas} />
+          <BarChartLigacoes prospectas={base} />
         </div>
         <div className="card prosp-chart-card">
           <p className="text-sm font-bold mb-4" style={{ color: 'var(--text)' }}>Distribuição por status</p>
-          <DonutStatus prospectas={prospectas} />
+          <DonutStatus prospectas={base} />
         </div>
+      </div>
+
+      {caixa && (
+        <CaixaClassificacao
+          titulo={caixa.titulo}
+          leads={caixa.leads}
+          cor={caixa.cor}
+          visao={visao}
+          onClose={() => setCaixa(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Caixa com todos os leads de uma classificação do dashboard ──────────────
+// Aberta ao clicar num card. Lista as mesmas colunas da aba Leads e, quando
+// há segundo telefone, mostra a coluna extra também.
+function CaixaClassificacao({ titulo, leads, cor, visao, onClose }) {
+  const ordenados = useMemo(() => {
+    const nome = (p) => (p.empresa || '').toLowerCase();
+    return [...leads].sort((a, b) => nome(a).localeCompare(nome(b)));
+  }, [leads]);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box prosp-caixa" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="prosp-caixa-dot" style={{ background: cor }} />
+            <h3 className="text-base font-bold" style={{ color: 'var(--text)' }}>{titulo}</h3>
+            <span className="prosp-pill" style={{ background: '#F1F5F9', color: 'var(--muted)' }}>
+              {leads.length} {leads.length === 1 ? 'lead' : 'leads'}
+            </span>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--faint)' }}><X size={18} /></button>
+        </div>
+        <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+          {visao === 'geral' ? 'Toda a base' : `Apenas leads prospectados por ${visao === 'ana' ? 'Ana' : 'Ricardo'}`}
+        </p>
+
+        {ordenados.length === 0 ? (
+          <div className="text-center py-10">
+            <Building2 size={22} className="mx-auto mb-2" style={{ color: '#C6CFDD' }} />
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>Nenhum lead nesta classificação.</p>
+          </div>
+        ) : (
+          <div className="card scroll-x" style={{ background: '#F8FAFC', boxShadow: 'none', padding: 0 }}>
+            {(() => {
+              const temTel2 = ordenados.some(p => p.telefone2);
+              const cols = temTel2
+                ? '1.5fr 100px 1fr 140px 140px 82px 108px 72px 90px'
+                : '1.6fr 100px 1fr 150px 90px 108px 72px 100px';
+              return (<>
+                <div className="meta-thead prosp-leads-thead px-4 py-2.5 grid text-xs font-semibold"
+                  style={{ gridTemplateColumns: cols, gap: '8px' }}>
+                  <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span>
+                  {temTel2 && <span>Telefone 2</span>}<span>Últ. contato</span><span>Status</span><span>Fonte</span><span>Quem prospectou</span>
+                </div>
+                {ordenados.map((p, i) => {
+                  const st = statusInfo(p.status);
+                  const venc = p.status === 'retornar' && (!p.retornoEm || p.retornoEm <= TODAY_ISO);
+                  return (
+                    <div key={p.id} className="grid items-center px-4 py-2 text-xs"
+                      style={{ gridTemplateColumns: cols, gap: '8px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                      <span className="font-semibold truncate" style={{ color: 'var(--text)' }}>{p.empresa}</span>
+                      <span style={{ color: 'var(--muted)' }}>{p.cidade || '—'}</span>
+                      <span className="truncate" style={{ color: 'var(--muted)' }}>{p.nicho || '—'}</span>
+                      <span className="font-semibold" style={{ color: 'var(--signalDeep)' }}>{p.telefone || '—'}</span>
+                      {temTel2 && <span className="font-semibold" style={{ color: 'var(--muted)' }}>{p.telefone2 || '—'}</span>}
+                      <span style={{ color: 'var(--muted)' }}>{p.ultimoContato ? fmtDDMM(p.ultimoContato) : '—'}</span>
+                      <span className="prosp-pill" style={{ background: st.bg, color: venc ? '#DC2626' : st.color }}>
+                        {st.label}{p.status === 'retornar' && p.retornoEm ? ` ${fmtDDMM(p.retornoEm)}` : ''}
+                      </span>
+                      <span><FontePill fonte={p.fonte} /></span>
+                      <span><ProspectadorPill prospectador={p.prospectador} /></span>
+                    </div>
+                  );
+                })}
+              </>);
+            })()}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -287,6 +432,36 @@ function LeadEditModal({ lead, onClose, onSave, onDelete }) {
             </div>
           </div>
           <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Quem prospectou</label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setForm(f => ({ ...f, prospectador: '' }))}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold border transition-all"
+                style={{
+                  background:  !form.prospectador ? '#F1F5F9' : '#F8FAFC',
+                  borderColor: !form.prospectador ? '#94A3B8' : 'var(--line)',
+                  color:       !form.prospectador ? '#475569' : 'var(--faint)',
+                  cursor: 'pointer',
+                }}>
+                Sem dono
+              </button>
+              {PROSPECTADORES.map(p => (
+                <button key={p.key} type="button" onClick={() => setForm(f => ({ ...f, prospectador: p.key }))}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-all"
+                  style={{
+                    background:  form.prospectador === p.key ? p.bg : '#F8FAFC',
+                    borderColor: form.prospectador === p.key ? p.color : 'var(--line)',
+                    color:       form.prospectador === p.key ? p.color : 'var(--faint)',
+                    cursor: 'pointer',
+                  }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {!form.prospectador && (
+              <p className="text-[10px] mt-1" style={{ color: 'var(--faint)' }}>Sem dono: aparece na fila dos dois prospectadores.</p>
+            )}
+          </div>
+          <div>
             <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Nicho</label>
             <input className="input-field" value={form.nicho} onChange={e => setForm(f => ({ ...f, nicho: e.target.value }))} />
           </div>
@@ -333,6 +508,7 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
   const [fStatus, setFStatus] = useState('');
   const [fLista, setFLista]   = useState('');
   const [fFonte, setFFonte]   = useState('');
+  const [fProspectador, setFProspectador] = useState('');
   const [somenteContatados, setSomenteContatados] = useState(true);
   const [popAberto, setPopAberto] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -340,8 +516,8 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
   const cidades = useMemo(() => [...new Set(prospectas.map(p => p.cidade).filter(Boolean))].sort(), [prospectas]);
   const listas  = useMemo(() => [...new Set(prospectas.map(p => p.lista).filter(Boolean))].sort(), [prospectas]);
 
-  const nFiltros = (busca ? 1 : 0) + (fCidade ? 1 : 0) + (fStatus ? 1 : 0) + (fLista ? 1 : 0) + (fFonte ? 1 : 0);
-  const limparFiltros = () => { setBusca(''); setFCidade(''); setFStatus(''); setFLista(''); setFFonte(''); };
+  const nFiltros = (busca ? 1 : 0) + (fCidade ? 1 : 0) + (fStatus ? 1 : 0) + (fLista ? 1 : 0) + (fFonte ? 1 : 0) + (fProspectador ? 1 : 0);
+  const limparFiltros = () => { setBusca(''); setFCidade(''); setFStatus(''); setFLista(''); setFFonte(''); setFProspectador(''); };
 
   const filtrados = prospectas.filter(p =>
     (!somenteContatados || p.status !== 'novo') &&
@@ -349,7 +525,8 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
     (!fCidade || p.cidade === fCidade) &&
     (!fStatus || p.status === fStatus) &&
     (!fLista  || p.lista === fLista) &&
-    (!fFonte  || p.fonte === fFonte)
+    (!fFonte  || p.fonte === fFonte) &&
+    (!fProspectador || p.prospectador === fProspectador)
   );
 
   const handleSave = async (form) => {
@@ -408,6 +585,10 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
                   <option value="">Todas as fontes</option>
                   {Object.entries(FONTES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
+                <select className="input-field" style={selStyle} value={fProspectador} onChange={e => setFProspectador(e.target.value)}>
+                  <option value="">Todos os prospectadores</option>
+                  {PROSPECTADORES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                </select>
                 <label className="prosp-filter-toggle">
                   <input type="checkbox" checked={somenteContatados} onChange={e => setSomenteContatados(e.target.checked)} />
                   Mostrar apenas já contatados
@@ -436,11 +617,11 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
         <div className="card overflow-hidden scroll-x">
           {(() => {
             const temTel2 = filtrados.some(p => p.telefone2);
-            const cols = temTel2 ? '1.5fr 100px 1fr 160px 150px 85px 125px 78px 105px' : '1.6fr 110px 1fr 180px 90px 125px 110px 78px';
+            const cols = temTel2 ? '1.5fr 100px 1fr 150px 145px 80px 118px 72px 78px 100px' : '1.6fr 105px 1fr 170px 85px 118px 103px 72px 100px';
             return (
-          <div style={{ minWidth: temTel2 ? 1040 : 950 }}>
+          <div style={{ minWidth: temTel2 ? 1100 : 1010 }}>
             <div className="meta-thead prosp-leads-thead px-5 py-3 grid text-xs font-semibold" style={{ gridTemplateColumns: cols, gap: '8px' }}>
-              <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span>{temTel2 && <span>Telefone 2</span>}<span>Últ. contato</span><span>Status</span><span>Fonte</span><span>Lista</span>
+              <span>Empresa</span><span>Cidade</span><span>Nicho</span><span>Telefone</span>{temTel2 && <span>Telefone 2</span>}<span>Últ. contato</span><span>Status</span><span>Fonte</span><span>Quem prospectou</span><span>Lista</span>
             </div>
             {filtrados.map((p, idx) => {
               const st = statusInfo(p.status);
@@ -461,6 +642,7 @@ function ProspLeads({ prospectas, setProspectas, empresaAtiva }) {
                     </span>
                   </span>
                   <span><FontePill fonte={p.fonte} /></span>
+                  <span><ProspectadorPill prospectador={p.prospectador} /></span>
                   <span className="text-xs truncate" style={{ color: 'var(--faint)' }}>{p.lista || '—'}</span>
                 </div>
               );
@@ -974,11 +1156,21 @@ function ReuniaoModal({ lead, onClose, onConfirm }) {
 }
 
 function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
+  const [prospectador, setProspectador] = useState(() => localStorage.getItem('crm_prospectador') || '');
   const [cidade, setCidade]   = useState('');
   const [obs, setObs]         = useState('');
   const [retornoData, setRetornoData] = useState('');
   const [aviso, setAviso]     = useState('');
   const [reuniaoAberta, setReuniaoAberta] = useState(false);
+
+  // A pergunta "quem vai prospectar?" é feita toda vez que se entra na Prospecção
+  // Ativa — fica salva no navegador para a sessão atual.
+  const [perguntaAberta, setPerguntaAberta] = useState(true);
+  const escolherProspectador = (k) => {
+    setProspectador(k);
+    localStorage.setItem('crm_prospectador', k);
+    setPerguntaAberta(false);
+  };
 
   const cidades = useMemo(() => {
     const map = {};
@@ -986,17 +1178,17 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
       const c = p.cidade || 'Sem cidade';
       map[c] ||= { total: 0, fila: 0 };
       map[c].total++;
-      if (naFila(p)) map[c].fila++;
+      if (naFila(p, prospectador)) map[c].fila++;
     }
     return Object.entries(map).sort((a, b) => b[1].fila - a[1].fila);
-  }, [prospectas]);
+  }, [prospectas, prospectador]);
 
   const fila = useMemo(() => {
     if (!cidade) return [];
     return prospectas
       .filter(p => (p.cidade || 'Sem cidade') === cidade)
-      .filter(naFila);
-  }, [cidade, prospectas]);
+      .filter(p => naFila(p, prospectador));
+  }, [cidade, prospectas, prospectador]);
 
   const totalCidade = prospectas.filter(p => (p.cidade || 'Sem cidade') === cidade).length;
   const atual = fila[0];
@@ -1004,7 +1196,10 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
 
   const registrar = async (status) => {
     if (!atual) return;
-    const patch = { status, ultimoContato: TODAY_ISO, retornoEm: status === 'retornar' ? (retornoData || TODAY_ISO) : '', obs: obs || atual.obs };
+    // O primeiro contato registra quem está prospectando; a partir daí o lead
+    // sai da fila do outro prospectador (mecanismo anti-duplicação).
+    const prospectarComo = atual.prospectador || prospectador;
+    const patch = { status, prospectador: prospectarComo, ultimoContato: TODAY_ISO, retornoEm: status === 'retornar' ? (retornoData || TODAY_ISO) : '', obs: obs || atual.obs };
     setProspectas(prev => prev.map(p => p.id === atual.id ? { ...p, ...patch } : p));
     setObs(''); setRetornoData('');
     await updateCrmProspecta(atual.id, patch);
@@ -1020,7 +1215,8 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
   // e um compromisso é criado na Agenda, vinculado ao lead pelo eventoId
   const agendarReuniao = async ({ data, hora, local }) => {
     if (!atual) return;
-    const patch = { status: 'reuniao', ultimoContato: TODAY_ISO, retornoEm: '', obs: obs || atual.obs };
+    const prospectarComo = atual.prospectador || prospectador;
+    const patch = { status: 'reuniao', prospectador: prospectarComo, ultimoContato: TODAY_ISO, retornoEm: '', obs: obs || atual.obs };
     setProspectas(prev => prev.map(p => p.id === atual.id ? { ...p, ...patch } : p));
     setReuniaoAberta(false);
     setObs(''); setRetornoData('');
@@ -1048,12 +1244,61 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
       : 'Reunião registrada na prospecção, mas falhou ao enviar para o Pipeline/Agenda — confira a empresa ativa');
   };
 
-  if (!cidade) {
+  if (!prospectador || perguntaAberta) {
     return (
       <div className="space-y-4">
         <div>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Prospecção Ativa</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Escolha a cidade — o app mostra um contato por vez</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Quem vai prospectar agora?</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {PROSPECTADORES.map(p => (
+            <button key={p.key} onClick={() => escolherProspectador(p.key)}
+              className="card flex items-center gap-3"
+              style={{
+                padding: '20px 22px', cursor: 'pointer', textAlign: 'left',
+                border: `2px solid ${prospectador === p.key ? p.color : 'var(--line)'}`,
+                background: prospectador === p.key ? p.bg : '#fff',
+                transition: 'all 0.15s',
+              }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: prospectador === p.key ? '#fff' : p.bg }}>
+                <Users size={18} style={{ color: p.color }} />
+              </div>
+              <div>
+                <p className="text-base font-bold" style={{ color: 'var(--text)' }}>{p.label}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+                  {prospectas.filter(x => naFila(x, p.key)).length} leads na fila dele(a)
+                </p>
+              </div>
+              {prospectador === p.key && (
+                <Check size={16} style={{ color: p.color, marginLeft: 'auto', flexShrink: 0 }} />
+              )}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs" style={{ color: 'var(--faint)' }}>
+          Quem atende um lead primeiro deixa o nome registrado — a partir daí o lead sai da fila do outro e
+          ninguém prospecta duas vezes a mesma empresa.
+        </p>
+      </div>
+    );
+  }
+
+  if (!cidade) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--text)' }}>
+              Prospecção Ativa
+              <span className="prosp-pill" style={{ background: (prospectadorInfo(prospectador)||{}).bg, color: (prospectadorInfo(prospectador)||{}).color }}>
+                {(prospectadorInfo(prospectador)||{}).label}
+              </span>
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Escolha a cidade — o app mostra um contato por vez</p>
+          </div>
+          <button className="btn-ghost" onClick={() => setPerguntaAberta(true)}>Trocar prospectador</button>
         </div>
         {cidades.length === 0 ? (
           <div className="card py-14 text-center">
@@ -1100,10 +1345,18 @@ function ProspFluxo({ prospectas, setProspectas, empresaAtiva }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Prospecção — {cidade}</h2>
+          <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: 'var(--text)' }}>
+            Prospecção — {cidade}
+            <span className="prosp-pill" style={{ background: (prospectadorInfo(prospectador)||{}).bg, color: (prospectadorInfo(prospectador)||{}).color }}>
+              {(prospectadorInfo(prospectador)||{}).label}
+            </span>
+          </h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{feitos} de {totalCidade} nesta cidade</p>
         </div>
-        <button className="btn-ghost" onClick={() => setCidade('')}>Trocar cidade</button>
+        <div className="flex items-center gap-2">
+          <button className="btn-ghost" onClick={() => setPerguntaAberta(true)}>Trocar prospectador</button>
+          <button className="btn-ghost" onClick={() => setCidade('')}>Trocar cidade</button>
+        </div>
       </div>
 
       <div className="prosp-bar" style={{ height: 8 }}><div className="prosp-bar-fill" style={{ width: `${totalCidade ? feitos / totalCidade * 100 : 0}%` }} /></div>

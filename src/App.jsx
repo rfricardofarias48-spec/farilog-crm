@@ -7,7 +7,7 @@ import {
 } from './lib/db';
 import TarefasModule from './Tarefas';
 import MetasModule from './Metas';
-import ProspeccaoModule, { FONTES } from './Prospeccao';
+import ProspeccaoModule, { FONTES, PROSPECTADORES } from './Prospeccao';
 import {
   Plus, X, Trash2, ChevronLeft, ChevronRight,
   CalendarDays, Lock, LogOut, Users, MapPin, Zap,
@@ -286,7 +286,7 @@ function EmpresaPicker({ empresaAtiva, onPick, onClose }) {
 function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete, empresaAtiva }) {
   const [form, setForm] = useState(initial || {
     nomeEmpresa: '', contato: '', telefone: '', cidade: '', quantidade: '', etapa: defaultEtapa || 'novo', tipo: 'diaria', ultimoContato: '',
-    reuniaoData: '', reuniaoHora: '09:00', observacoes: '', fonte: 'upload',
+    reuniaoData: '', reuniaoHora: '09:00', observacoes: '', fonte: 'upload', prospectador: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
@@ -405,6 +405,23 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete, empresaAt
             </div>
           </div>
           <div>
+            <label className="text-xs font-semibold mb-1.5 block" style={{ color: C.muted }}>Quem prospectou</label>
+            <div className="flex gap-2">
+              {PROSPECTADORES.map(p => (
+                <button key={p.key} type="button" onClick={() => setForm(fr => ({ ...fr, prospectador: fr.prospectador === p.key ? '' : p.key }))}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-all"
+                  style={{
+                    background:  form.prospectador === p.key ? p.bg : '#F8FAFC',
+                    borderColor: form.prospectador === p.key ? p.color : C.line,
+                    color:       form.prospectador === p.key ? p.color : C.faint,
+                    cursor: 'pointer',
+                  }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className="text-xs font-semibold mb-1 block" style={{ color: C.muted }}>Observações</label>
             <textarea className="input-field" rows={3} value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} placeholder="Detalhes do lead..." style={{ resize: 'none' }} />
           </div>
@@ -433,6 +450,7 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete, empresaAt
 function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
   const tInfo = tipoInfo(lead.tipo);
   const fInfo = FONTES[lead.fonte] || FONTES.upload;
+  const pInfo = PROSPECTADORES.find(p => p.key === lead.prospectador);
   return (
     <div
       draggable
@@ -454,6 +472,11 @@ function LeadCard({ lead, onDragStart, onDragEnd, onClick, dragging }) {
         <span className="prosp-pill" style={{ background: fInfo.bg, color: fInfo.color, padding: '2px 7px' }} title={`Fonte: ${fInfo.label}`}>
           {fInfo.label}
         </span>
+        {pInfo && (
+          <span className="prosp-pill" style={{ background: pInfo.bg, color: pInfo.color, padding: '2px 7px' }} title={`Prospectado por ${pInfo.label}`}>
+            {pInfo.label}
+          </span>
+        )}
       </div>
       {lead.ultimoContato && (
         <p className="text-xs mt-1" style={{ color: C.muted }}>

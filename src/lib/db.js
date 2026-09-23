@@ -62,6 +62,7 @@ function mapCrmLead(r) {
     observacoes:   r.observacoes || '',
     empresa:       r.empresa || 'Farilog',
     fonte:         r.fonte || 'upload',
+    prospectador:  r.prospectador || '',
     criadoEm:      r.criado_em,
   };
 }
@@ -75,7 +76,7 @@ export async function fetchCrmLeads(empresa = null) {
   return data.map(mapCrmLead);
 }
 
-export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, ultimoContato, reuniaoData, reuniaoHora, eventoId, observacoes, empresa = 'Farilog', fonte = 'upload' }) {
+export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, quantidade, etapa, tipo, ultimoContato, reuniaoData, reuniaoHora, eventoId, observacoes, empresa = 'Farilog', fonte = 'upload', prospectador = null }) {
   const base = {
     nome_empresa:   nomeEmpresa,
     contato:        contato || null,
@@ -91,9 +92,10 @@ export async function createCrmLead({ nomeEmpresa, contato, telefone, cidade, qu
     observacoes:    observacoes || null,
     empresa:        empresa || 'Farilog',
   };
-  let { data, error } = await supabase.from('crm_leads').insert({ ...base, fonte: fonte || 'upload' }).select().single();
+  const extras = { fonte: fonte || 'upload', prospectador: prospectador || null };
+  let { data, error } = await supabase.from('crm_leads').insert({ ...base, ...extras }).select().single();
   if (error) {
-    // coluna fonte ainda não criada no banco (migração pendente) → insere sem ela
+    // colunas novas ainda não criadas no banco (migração pendente) → insere sem elas
     ({ data, error } = await supabase.from('crm_leads').insert(base).select().single());
   }
   if (error) { console.error('[db] createCrmLead:', error.message); return null; }
@@ -116,6 +118,7 @@ export async function updateCrmLead(id, patch) {
   if (patch.observacoes   !== undefined) p.observacoes    = patch.observacoes;
   if (patch.empresa       !== undefined) p.empresa        = patch.empresa;
   if (patch.fonte          !== undefined) p.fonte          = patch.fonte;
+  if (patch.prospectador   !== undefined) p.prospectador   = patch.prospectador || null;
   const { error } = await supabase.from('crm_leads').update(p).eq('id', id);
   if (error) { console.error('[db] updateCrmLead:', error.message); return false; }
   return true;
@@ -402,6 +405,7 @@ function mapCrmProspecta(r) {
     ultimoContato: r.ultimo_contato || '',
     retornoEm:     r.retorno_em || '',
     fonte:         r.fonte || 'upload',
+    prospectador:  r.prospectador || '',
     criadoEm:      r.criado_em,
   };
 }
@@ -429,6 +433,7 @@ export async function createCrmProspectasBulk(items) {
     contato_em: i.contatoEm  || null,
     lista:      i.lista      || null,
     fonte:      i.fonte      || 'upload',
+    prospectador: i.prospectador || null,
   }));
   // banco sem as colunas novas (migração pendente): reenvia sem elas
   const slim = full.map(({ telefone2, fonte, ...r }) => r);
@@ -471,6 +476,7 @@ export async function updateCrmProspecta(id, patch) {
   if (patch.status        !== undefined) p.status         = patch.status;
   if (patch.ultimoContato !== undefined) p.ultimo_contato = patch.ultimoContato || null;
   if (patch.retornoEm     !== undefined) p.retorno_em     = patch.retornoEm || null;
+  if (patch.prospectador  !== undefined) p.prospectador   = patch.prospectador || null;
   let { error } = await supabase.from('crm_prospectas').update(p).eq('id', id);
   if (error && p.telefone2 !== undefined) { // banco sem a coluna (migração pendente): salva o resto
     const { telefone2, ...sem2 } = p;
