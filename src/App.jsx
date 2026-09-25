@@ -390,13 +390,13 @@ function LeadModal({ initial, defaultEtapa, onClose, onSave, onDelete, empresaAt
           <div>
             <label className="text-xs font-semibold mb-1.5 block" style={{ color: C.muted }}>Fonte</label>
             <div className="flex gap-2">
-              {FONTES.map(f => (
-                <button key={f.key} type="button" onClick={() => setForm(fr => ({ ...fr, fonte: f.key }))}
+              {Object.entries(FONTES).map(([k, f]) => (
+                <button key={k} type="button" onClick={() => setForm(fr => ({ ...fr, fonte: k }))}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-all"
                   style={{
-                    background:  form.fonte === f.key ? f.bg : '#F8FAFC',
-                    borderColor: form.fonte === f.key ? f.color : C.line,
-                    color:       form.fonte === f.key ? f.color : C.faint,
+                    background:  form.fonte === k ? f.bg : '#F8FAFC',
+                    borderColor: form.fonte === k ? f.color : C.line,
+                    color:       form.fonte === k ? f.color : C.faint,
                     cursor: 'pointer',
                   }}>
                   {f.label}
